@@ -94,6 +94,20 @@ const BOW_COLOR_MAP: Record<string, string> = {
   'LILAS':         '#c084fc',
 }
 
+function formatDate(dateStr: string | null | undefined) {
+  if (!dateStr) return "—"
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return "—"
+    const day   = String(d.getUTCDate()).padStart(2, "0")
+    const month = String(d.getUTCMonth() + 1).padStart(2, "0")
+    const year  = String(d.getUTCFullYear())
+    return day + "/" + month + "/" + year
+  } catch (e) {
+    return "—"
+  }
+}
+
 function BowColorDot({ color }: { color: string | null }) {
   if (!color) return <span className="text-gray-300 text-xs">—</span>
   const upper = color.toUpperCase().trim()
@@ -145,11 +159,15 @@ export default function PedidosTable({ orders, initialStatus = '', operadores = 
       }
       if (filterStatus && order.status !== filterStatus) return false
       if (filterDataEnvio && order.dueDate) {
-        const envio = new Date(order.dueDate).toISOString().split('T')[0]
+        const envio = order.dueDate.includes('T')
+          ? order.dueDate.split('T')[0]
+          : order.dueDate
         if (envio !== filterDataEnvio) return false
       }
       if (filterEntrada) {
-        const entrada = new Date(order.createdAt).toISOString().split('T')[0]
+        const entrada = order.createdAt.includes('T')
+          ? order.createdAt.split('T')[0]
+          : order.createdAt
         if (entrada !== filterEntrada) return false
       }
       if (filterBowType && order.items[0]?.bowType !== filterBowType) return false
@@ -601,10 +619,10 @@ export default function PedidosTable({ orders, initialStatus = '', operadores = 
                       </span>
                     </td>
                     <td className="px-3 py-3 text-gray-500 text-xs whitespace-nowrap">
-                      {order.dueDate ? new Date(order.dueDate).toLocaleDateString('pt-BR') : '—'}
+                      {formatDate(order.dueDate)}
                     </td>
                     <td className="px-3 py-3 text-gray-500 text-xs whitespace-nowrap">
-                      {new Date(order.createdAt).toLocaleDateString('pt-BR')}
+                      {formatDate(order.createdAt)}
                     </td>
                   </tr>
                 )

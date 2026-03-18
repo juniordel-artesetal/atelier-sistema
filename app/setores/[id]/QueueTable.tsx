@@ -100,9 +100,18 @@ const SETORES_DEVOLUCAO = [
   { stepId: 'step_expedicao', label: 'Expedição' },
 ]
 
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('pt-BR')
+function formatDate(dateStr: string | null | undefined) {
+  if (!dateStr) return "—"
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return "—"
+    const day   = String(d.getUTCDate()).padStart(2, "0")
+    const month = String(d.getUTCMonth() + 1).padStart(2, "0")
+    const year  = String(d.getUTCFullYear())
+    return day + "/" + month + "/" + year
+  } catch (e) {
+    return "—"
+  }
 }
 
 function BowColorBadge({ color }: { color: string | null }) {
@@ -328,15 +337,21 @@ export default function QueueTable({
       if (filterArtStatus && item.order.artStatus !== filterArtStatus) return false
       if (filterDueDate) {
         if (!item.dueDate) return false
-        const d = new Date(item.dueDate).toISOString().split('T')[0]
+        const d = item.dueDate.includes('T')
+          ? item.dueDate.split('T')[0]
+          : item.dueDate
         if (d !== filterDueDate) return false
       }
       if (filterEnvio && item.order.dueDate) {
-        const d = new Date(item.order.dueDate).toISOString().split('T')[0]
+        const d = item.order.dueDate.includes('T')
+          ? item.order.dueDate.split('T')[0]
+          : item.order.dueDate
         if (d !== filterEnvio) return false
       }
       if (filterEntrada) {
-        const d = new Date(item.createdAt).toISOString().split('T')[0]
+        const d = item.createdAt.includes('T')
+          ? item.createdAt.split('T')[0]
+          : item.createdAt
         if (d !== filterEntrada) return false
       }
       return true
