@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── WORKSPACE ───────────────────────────────────────────────
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  departments   Department[]
+  workflowSteps WorkflowStep[]
+  orders        Order[]
+  workItems     WorkItem[]
+}
+
+// ─── LOJAS ───────────────────────────────────────────────────
+model Store {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+
+  orders Order[]
+
+  @@index([workspaceId])
+}
+
+// ─── SETORES DE PRODUÇÃO ─────────────────────────────────────
+model Department {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String @default("#6366f1")
+
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id])
+  workflowSteps WorkflowStep[]
+  workItems     WorkItem[]
+  users         UserDepartment[]
+
+  @@index([workspaceId])
+}
+
+// ─── ETAPAS DO WORKFLOW ──────────────────────────────────────
+model WorkflowStep {
+  id           String @id @default(cuid())
+  workspaceId  String
+  departmentId String
+  name         String
+  code         String
+  sortOrder    Int
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
+  workItems  WorkItem[]
+
+  @@index([workspaceId])
+  @@index([workspaceId, sortOrder])
+}
+
+// ─── PEDIDOS ─────────────────────────────────────────────────
+model Order {
+  id            String       @id @default(cuid())
+  workspaceId   String
+  storeId       String
+  externalId    String?
+  recipientName String
+  productType   String?      // <-- adiciona
+  theme         String?      // <-- adiciona
+  channel       String?
+  buyerUsername String?
+  orderDate     DateTime?
+  dueDate       DateTime?
+  status        OrderStatus  @default(PENDING)
+  productionType ProductionType?
+  notes         String?
+  failures      String?
+  artType   String?
+  artStatus String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+
+  workspace  Workspace    @relation(fields: [workspaceId], references: [id])
+  store      Store        @relation(fields: [storeId], references: [id])
+  items      OrderItem[]
+  workItems  WorkItem[]
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  CANCELLED
+  POSTED
+}
+
+// ─── ITENS DO PEDIDO ─────────────────────────────────────────
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+
+  productName           String
+  variation             String?
+  quantity              Int          @default(1)
+  theme                 String?
+  childName             String?
+  bowColor              String?
+  bowType               BowType      @default(NONE)
+  appliqueType          AppliqueType @default(NONE)
+  appliqueQty           Int?
+  productionResponsible String?
+  artResponsible        String?
+  bowQty        Int?
+  totalItems    Int?
+
+  order     Order      @relation(fields: [orderId], references: [id])
+  workItems WorkItem[]
+
+  @@index([orderId])
+}
+
+enum BowType {
+  NONE
+  SIMPLE
+  LUXURY
+}
+
+enum AppliqueType {
+  NONE
+  SIMPLE
+  THREE_D
+  THREE_D_LUX
+}
+
+// ─── TAREFAS DE PRODUÇÃO ─────────────────────────────────────
+model WorkItem {
+  id           String @id @default(cuid())
+  workspaceId  String
+  orderId      String
+  orderItemId  String
+  stepId       String
+  departmentId String
+  productionResponsibleId String?
+  productionResponsible   ProductionResponsible? @relation(fields: [productionResponsibleId], references: [id])
+
+  status    WorkItemStatus @default(TODO)
+  dueDate   DateTime?
+  startedAt DateTime?
+  doneAt    DateTime?
+
+  responsibleId String?
+  responsible   User?   @relation("WorkItemResponsible", fields: [responsibleId], references: [id])
+
+  delegatedById String?
+  delegatedBy   User?   @relation("WorkItemDelegatedBy", fields: [delegatedById], references: [id])
+
+  sectorNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace  Workspace    @relation(fields: [workspaceId], references: [id])
+  order      Order        @relation(fields: [orderId], references: [id])
+  orderItem  OrderItem    @relation(fields: [orderItemId], references: [id])
+  step       WorkflowStep @relation(fields: [stepId], references: [id])
+  department Department   @relation(fields: [departmentId], references: [id])
+
+  @@index([workspaceId, departmentId, status])
+  @@index([orderId])
+}
+
+enum WorkItemStatus {
+  TODO
+  DOING
+  DONE
+  CANCELLED
+}
+
+// ─── USUÁRIOS ────────────────────────────────────────────────
+model User {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  email       String    @unique
+  password    String
+  role        UserRole  @default(OPERADOR)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  departments        UserDepartment[]
+  workItems          WorkItem[]       @relation("WorkItemResponsible")
+  delegatedWorkItems WorkItem[]       @relation("WorkItemDelegatedBy")
+}
+
+// ─── RELAÇÃO USUÁRIO <-> SETOR ────────────────────────────────
+model UserDepartment {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, departmentId])
+}
+// ─── CRIAÇÃO TEMA ────────────────────────────────
+model Theme {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  bowColor    String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId])
+}
+// ─── HISTORICO DO PEDIDO ────────────────────────────────
+model OrderHistory {
+  id        String   @id @default(cuid())
+  orderId   String
+  userId    String
+  userName  String
+  field     String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+// ─── RESPONSAVEL PRODUÇÃO ────────────────────────────────
+model ProductionResponsible {
+  id          String     @id @default(cuid())
+  workspaceId String
+  name        String
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  workItems   WorkItem[]
+
+  @@index([workspaceId])
+}
+enum UserRole {
+  ADMIN
+  DELEGADOR
+  OPERADOR
+}
+enum ProductionType {
+  EXTERNA
+  INTERNA
+  PRONTA_ENTREGA
+}

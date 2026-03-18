@@ -1,0 +1,1 @@
+ALTER TYPE "WorkItemStatus" ADD VALUE 'CANCELLED';
