@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react'
 interface Operador { id: string; name: string }
 
 interface OrderItem {
+    productName: string | null
   id: string
   variation: string | null
   bowType: string | null
@@ -1032,3 +1033,4 @@ export default function QueueTable({
     </>
   )
 }
+
