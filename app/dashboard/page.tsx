@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma'
+import React from 'react'
+import { Palette, Archive, Printer, Factory, Scissors, CheckSquare, Send } from 'lucide-react'
 import Link from 'next/link'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -8,9 +10,14 @@ const DEPT_ORDER = [
   'dep_prod_ext', 'dep_prod_int', 'dep_pronta', 'dep_expedicao',
 ]
 
-const DEPT_ICONS: Record<string, string> = {
-  dep_arte: 'Arte', dep_arquivo: 'Arq', dep_impressao: 'Imp',
-  dep_prod_ext: 'PE', dep_prod_int: 'PI', dep_pronta: 'PrE', dep_expedicao: 'Exp',
+const DEPT_ICONS: Record<string, React.ElementType> = {
+  dep_arte:      Palette,
+  dep_arquivo:   Archive,
+  dep_impressao: Printer,
+  dep_prod_ext:  Factory,
+  dep_prod_int:  Scissors,
+  dep_pronta:    CheckSquare,
+  dep_expedicao: Send,
 }
 
 export default async function DashboardPage() {
@@ -135,7 +142,7 @@ export default async function DashboardPage() {
           <Link key={dept.id} href={`/setores/${dept.id}`}>
             <div className="bg-white rounded-xl border border-gray-100 p-5 hover:border-purple-200 hover:shadow-sm transition-all flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-xs font-bold flex-shrink-0">{DEPT_ICONS[dept.id] ?? dept.name[0]}</span>
+                {(() => { const Icon = DEPT_ICONS[dept.id]; return Icon ? <Icon size={20} className="text-purple-600" /> : <span className="text-xs font-bold text-purple-600">{dept.name[0]}</span> })()}
                 <div>
                   <p className="font-semibold text-gray-800 text-sm">{dept.name}</p>
                   <p className="text-xs text-gray-400">clique para ver a fila</p>
