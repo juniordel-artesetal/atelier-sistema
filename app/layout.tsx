@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
+      <head><meta charSet="utf-8" /></head>
       <body>
         <SessionProvider>
           <div className="flex min-h-screen bg-gray-50">
