@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
@@ -193,3 +194,25 @@ export async function POST(
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
+=======
+import { NextResponse } from "next/server";
+import { transitionWorkItem } from "@/lib/workflow";
+
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+
+  const body = (await req.json()) as { workspaceId: string; toStatus: "todo" | "doing" | "done" };
+
+  if (!body?.workspaceId || !body?.toStatus) {
+    return NextResponse.json({ ok: false, error: "workspaceId e toStatus são obrigatórios." }, { status: 400 });
+  }
+
+  const updated = await transitionWorkItem({
+    workItemId: id,
+    workspaceId: body.workspaceId,
+    toStatus: body.toStatus,
+  });
+
+  return NextResponse.json({ ok: true, workItem: updated });
+}
+>>>>>>> 207ad57b321dc370732151e2e34243648c175230
