@@ -35,6 +35,7 @@ const FIELD_LABELS: Record<string, string> = {
   externalId: 'ID Shopee', buyerUsername: 'ID Usuário', storeId: 'Loja',
   recipientName: 'Destinatário', dueDate: 'Data de Envio', notes: 'Observação',
   status: 'Status', theme: 'Tema', productionType: 'Tipo de Produção',
+  artType: 'Tipo de Arte', artStatus: 'Status da Arte',
   productName: 'Produto', variation: 'Variação', quantity: 'Quantidade',
   totalItems: 'Qtd de Itens', childName: 'Nome e Idade', bowColor: 'Cor do Laço',
   bowType: 'Tipo do Laço', bowQty: 'Qtd de Laços', appliqueType: 'Tipo de Aplique',
@@ -67,6 +68,9 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
     notes:          order.notes          ?? '',
     status:         order.status         ?? 'PENDING',
     productionType: order.productionType ?? '',
+    // ── Arte ──────────────────────────────────────────────────────────
+    artType:        order.artType        ?? '',
+    artStatus:      order.artStatus      ?? '',
     // ── Dados do produto ─────────────────────────────────────────────
     productName:    item?.productName    ?? '',
     variation:      item?.variation      ?? '',
@@ -96,12 +100,12 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          itemId:     item?.id,
-          artType:    form.artType    || null,
-          artStatus:  form.artStatus  || null,
-          quantity:   Number(form.quantity)   || 1,
-          totalItems: form.totalItems !== '' ? Number(form.totalItems) : null,
-          bowQty:     form.bowQty     !== '' ? Number(form.bowQty)     : null,
+          itemId:      item?.id,
+          artType:     form.artType     || null,
+          artStatus:   form.artStatus   || null,
+          quantity:    Number(form.quantity)    || 1,
+          totalItems:  form.totalItems  !== '' ? Number(form.totalItems)  : null,
+          bowQty:      form.bowQty      !== '' ? Number(form.bowQty)      : null,
           appliqueQty: form.appliqueQty !== '' ? Number(form.appliqueQty) : null,
         })
       })
@@ -184,7 +188,6 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
           </div>
         </div>
 
-        {/* Setor atual — read-only */}
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-600 mb-2">Setor Atual</label>
           {currentStepName ? (
@@ -209,19 +212,13 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
         </div>
       </div>
 
-      {/* ── ARTE ───────────────────────────────────────────────────────────── */}
+      {/* ── ARTE ─────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
         <h2 className="font-semibold text-gray-700 mb-4">Arte</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Tipo de Arte</label>
-            <input
-              name="artType"
-              value={form.artType}
-              onChange={handle}
-              placeholder="Ex: Cofrinho, Aplique, Kit"
-              className={inputClass}
-            />
+            <input name="artType" value={form.artType} onChange={handle} placeholder="Ex: Cofrinho, Aplique, Kit" className={inputClass} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Status da Arte</label>
@@ -305,22 +302,15 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
 
       {/* HISTÓRICO */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
-        <button
-          type="button"
-          onClick={() => setShowHistory(v => !v)}
-          className="flex items-center justify-between w-full"
-        >
+        <button type="button" onClick={() => setShowHistory(v => !v)} className="flex items-center justify-between w-full">
           <h2 className="font-semibold text-gray-700">
             Histórico de alterações
             {history.length > 0 && (
-              <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                {history.length}
-              </span>
+              <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{history.length}</span>
             )}
           </h2>
           <span className="text-gray-400 text-sm">{showHistory ? '▲' : '▼'}</span>
         </button>
-
         {showHistory && (
           <div className="mt-4 space-y-2">
             {history.length === 0 ? (
@@ -341,9 +331,7 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
                     {h.newValue && (
                       <span className="text-gray-400"> para <span className="text-green-600 font-medium">{h.newValue}</span></span>
                     )}
-                    <p className="text-gray-300 mt-0.5">
-                      {new Date(h.createdAt).toLocaleString('pt-BR')}
-                    </p>
+                    <p className="text-gray-300 mt-0.5">{new Date(h.createdAt).toLocaleString('pt-BR')}</p>
                   </div>
                 </div>
               ))
