@@ -59,12 +59,15 @@ const STATUS_COLOR: Record<string, string> = {
 const ART_STATUS_LABEL: Record<string, string> = {
   APROVADO: 'Aprovado', ARTE_IGUAL: 'Arte Igual',
   ARTE_CLIENTE: 'Arte Cliente', PRODUZIDO_SEM_APROVACAO: 'Prod. s/ Aprov.',
+  EM_APROVACAO: 'Em Aprovacao', REPLICAR_ARTE: 'Replicar Arte',
 }
 const ART_STATUS_COLOR: Record<string, string> = {
   APROVADO:               'bg-green-100 text-green-700',
   ARTE_IGUAL:             'bg-blue-100 text-blue-700',
   ARTE_CLIENTE:           'bg-yellow-100 text-yellow-700',
   PRODUZIDO_SEM_APROVACAO:'bg-red-100 text-red-600',
+  EM_APROVACAO:           'bg-orange-100 text-orange-700',
+  REPLICAR_ARTE:          'bg-purple-100 text-purple-700',
 }
 
 const PROD_LABEL: Record<string, string> = {
@@ -144,6 +147,11 @@ export default function QueueTable({
   const [editingDueDate, setEditingDueDate] = useState<string | null>(null)
   const [dueDateValue, setDueDateValue]     = useState<string>('')
   const [savingDueDate, setSavingDueDate]   = useState(false)
+  const [editingArtStatus, setEditingArtStatus] = useState<string | null>(null)
+  const [artStatusValue, setArtStatusValue]     = useState<string>('')
+  const [savingArtStatus, setSavingArtStatus]   = useState(false)
+  const [filterResponsavel, setFilterResponsavel] = useState('')
+  const [filterProdResp, setFilterProdResp]       = useState('')
 
   const isAdmin = role === 'ADMIN'
 
@@ -305,6 +313,8 @@ export default function QueueTable({
         if (!match) return false
       }
       if (filterStatus && item.status !== filterStatus) return false
+      if (filterResponsavel && item.responsible?.id !== filterResponsavel) return false
+      if (filterProdResp && item.productionResponsibleId !== filterProdResp) return false
       if (filterEnvio && item.order.dueDate) {
         const d = new Date(item.order.dueDate).toISOString().split('T')[0]
         if (d !== filterEnvio) return false
@@ -315,9 +325,9 @@ export default function QueueTable({
       }
       return true
     })
-  }, [workItems, search, filterStatus, filterEnvio, filterEntrada])
+  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp])
 
-  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada)
+  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp)
   const inputClass = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
 
   // Derivados de filtered — definidos aqui pois dependem do useMemo acima
@@ -357,6 +367,21 @@ export default function QueueTable({
       router.refresh()
     } finally {
       setLoadingId(null)
+    }
+  }
+
+  async function handleSaveArtStatus(orderId: string) {
+    setSavingArtStatus(true)
+    try {
+      await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artStatus: artStatusValue || null }),
+      })
+      setEditingArtStatus(null)
+      router.refresh()
+    } finally {
+      setSavingArtStatus(false)
     }
   }
 
@@ -401,21 +426,38 @@ export default function QueueTable({
             <option value="DOING">Em andamento</option>
           </select>
         </div>
-        {canManage && (
-          <>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Data de envio</label>
-              <input type="date" value={filterEnvio} onChange={e => setFilterEnvio(e.target.value)} className={inputClass} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Data de entrada</label>
-              <input type="date" value={filterEntrada} onChange={e => setFilterEntrada(e.target.value)} className={inputClass} />
-            </div>
-          </>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Responsavel atribuido</label>
+          <select value={filterResponsavel} onChange={e => setFilterResponsavel(e.target.value)} className={inputClass}>
+            <option value="">Todos</option>
+            {operadores.map(op => (
+              <option key={op.id} value={op.id}>{op.name}</option>
+            ))}
+          </select>
+        </div>
+        {responsaveisProducao.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Resp. producao</label>
+            <select value={filterProdResp} onChange={e => setFilterProdResp(e.target.value)} className={inputClass}>
+              <option value="">Todos</option>
+              {responsaveisProducao.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          </div>
         )}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Data de envio</label>
+          <input type="date" value={filterEnvio} onChange={e => setFilterEnvio(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Data de entrada</label>
+          <input type="date" value={filterEntrada} onChange={e => setFilterEntrada(e.target.value)} className={inputClass} />
+        </div>
         {hasFilter && (
           <button
-            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada('') }}
+            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp('') }}
             className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
           >
             Limpar filtros
@@ -724,7 +766,57 @@ export default function QueueTable({
                     )}
                   </div>
 
-                  {/* Observações */}
+                  {/* Status da Arte — editavel no setor Arte */}
+                  {isArteSector && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span className="text-xs text-gray-400">Status Arte:</span>
+                      {editingArtStatus === item.id ? (
+                        <>
+                          <select
+                            value={artStatusValue}
+                            onChange={e => setArtStatusValue(e.target.value)}
+                            className="border border-purple-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+                          >
+                            <option value="">-- Selecione --</option>
+                            <option value="APROVADO">Aprovado</option>
+                            <option value="ARTE_IGUAL">Arte Igual</option>
+                            <option value="ARTE_CLIENTE">Arte Cliente</option>
+                            <option value="PRODUZIDO_SEM_APROVACAO">Prod. s/ Aprovacao</option>
+                            <option value="EM_APROVACAO">Em Aprovacao</option>
+                            <option value="REPLICAR_ARTE">Replicar Arte</option>
+                          </select>
+                          <button
+                            onClick={() => handleSaveArtStatus(item.order.id)}
+                            disabled={savingArtStatus}
+                            className="text-xs bg-purple-600 text-white px-2 py-1 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                          >
+                            {savingArtStatus ? '...' : 'Salvar'}
+                          </button>
+                          <button onClick={() => setEditingArtStatus(null)} className="text-xs text-gray-400 hover:text-gray-600">cancelar</button>
+                        </>
+                      ) : (
+                        <>
+                          {item.order.artStatus ? (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ART_STATUS_COLOR[item.order.artStatus] ?? 'bg-gray-100 text-gray-500'}`}>
+                              {ART_STATUS_LABEL[item.order.artStatus] ?? item.order.artStatus}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300 text-xs">Nao definido</span>
+                          )}
+                          {canManage && (
+                            <button
+                              onClick={() => { setEditingArtStatus(item.id); setArtStatusValue(item.order.artStatus ?? '') }}
+                              className="text-xs text-purple-500 hover:underline"
+                            >
+                              {item.order.artStatus ? 'Alterar' : 'Definir'}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Observacoes */}
                   {item.order.notes && (
                     <p className="text-xs mt-1.5 px-2 py-1 bg-amber-50 text-amber-700 rounded-lg inline-block">
                       Obs: {item.order.notes}
@@ -844,7 +936,7 @@ export default function QueueTable({
                       {loadingId === item.id ? '...' : 'Concluir'}
                     </button>
                   )}
-                  {canManage && item.status !== 'DONE' && (
+                  {item.status !== 'DONE' && (
                     <button
                       onClick={() => { setRevertItem(item); setRevertStepId(''); setRevertMotivo('') }}
                       className="border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium px-4 py-2 rounded-lg"

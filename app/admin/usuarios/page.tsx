@@ -4,7 +4,7 @@ import UsuariosTable from './UsuariosTable'
 
 export default async function UsuariosPage() {
   const users = await prisma.user.findMany({
-    where: { workspaceId: 'ws_atelier', deletedAt: null },
+    where: { workspaceId: 'ws_atelier' }, // sem filtro deletedAt
     include: { departments: { include: { department: true } } },
     orderBy: { name: 'asc' }
   })
@@ -21,7 +21,6 @@ export default async function UsuariosPage() {
           + Nova usuária
         </Link>
       </div>
-
       <UsuariosTable users={users} />
     </div>
   )

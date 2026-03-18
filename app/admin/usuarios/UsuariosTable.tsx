@@ -11,6 +11,7 @@ interface User {
   email: string
   role: string
   active: boolean
+  deletedAt: string | null
   departments: UserDept[]
 }
 
@@ -40,6 +41,9 @@ export default function UsuariosTable({ users }: { users: User[] }) {
   const [selectedDepts, setSelectedDepts] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showDeleted, setShowDeleted] = useState(false)
+
+  const visibleUsers = showDeleted ? users : users.filter(u => !u.deletedAt)
 
   function openEdit(user: User) {
     setEditingUser(user)
@@ -99,10 +103,37 @@ export default function UsuariosTable({ users }: { users: User[] }) {
     router.refresh()
   }
 
+  async function handleRestore(user: User) {
+    if (!confirm(`Restaurar ${user.name}?`)) return
+    await fetch(`/api/admin/usuarios/${user.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: user.name, email: user.email, role: user.role,
+        departmentIds: user.departments.map(d => d.department.id),
+        active: true, restore: true
+      }),
+    })
+    router.refresh()
+  }
+
   const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+  const deletedCount = users.filter(u => u.deletedAt).length
 
   return (
     <>
+      {/* Toggle mostrar excluídos */}
+      {deletedCount > 0 && (
+        <div className="mb-3 flex items-center gap-2">
+          <button
+            onClick={() => setShowDeleted(v => !v)}
+            className="text-sm text-gray-500 hover:text-gray-700 underline"
+          >
+            {showDeleted ? 'Ocultar excluídos' : `Mostrar excluídos (${deletedCount})`}
+          </button>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -116,13 +147,16 @@ export default function UsuariosTable({ users }: { users: User[] }) {
             </tr>
           </thead>
           <tbody>
-            {users.map(user => (
-              <tr key={user.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-3 font-medium text-gray-800">{user.name}</td>
+            {visibleUsers.map(user => (
+              <tr key={user.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${user.deletedAt ? 'opacity-50' : ''}`}>
+                <td className="px-4 py-3 font-medium text-gray-800">
+                  {user.name}
+                  {user.deletedAt && <span className="ml-2 text-xs bg-red-100 text-red-500 px-1.5 py-0.5 rounded-full">Excluído</span>}
+                </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{user.email}</td>
                 <td className="px-4 py-3">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${ROLE_COLOR[user.role]}`}>
-                    {ROLE_LABEL[user.role]}
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${ROLE_COLOR[user.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                    {ROLE_LABEL[user.role] ?? user.role}
                   </span>
                 </td>
                 <td className="px-4 py-3">
@@ -136,17 +170,27 @@ export default function UsuariosTable({ users }: { users: User[] }) {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <button onClick={() => handleToggleActive(user)}
-                    className={`text-xs px-2 py-1 rounded-full font-medium transition-colors ${
-                      user.active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}>
-                    {user.active ? 'Ativo' : 'Inativo'}
-                  </button>
+                  {user.deletedAt ? (
+                    <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-500 font-medium">Excluído</span>
+                  ) : (
+                    <button onClick={() => handleToggleActive(user)}
+                      className={`text-xs px-2 py-1 rounded-full font-medium transition-colors ${
+                        user.active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}>
+                      {user.active ? 'Ativo' : 'Inativo'}
+                    </button>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button onClick={() => openEdit(user)} className="text-xs text-purple-600 hover:underline font-medium">Editar</button>
-                    <button onClick={() => handleDelete(user)} className="text-xs text-red-400 hover:underline font-medium">Excluir</button>
+                    {user.deletedAt ? (
+                      <button onClick={() => handleRestore(user)} className="text-xs text-green-600 hover:underline font-medium">Restaurar</button>
+                    ) : (
+                      <>
+                        <button onClick={() => openEdit(user)} className="text-xs text-purple-600 hover:underline font-medium">Editar</button>
+                        <button onClick={() => handleDelete(user)} className="text-xs text-red-400 hover:underline font-medium">Excluir</button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
