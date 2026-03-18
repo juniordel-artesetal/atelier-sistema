@@ -618,7 +618,7 @@ export default function QueueTable({
           {/* Previsão de entrega em lote — só ADMIN */}
           {someSelected && isAdmin && (
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 whitespace-nowrap">Prev. entrega em lote:</label>
+              <label className="text-xs text-gray-500 whitespace-nowrap">Prev. entrega tarefa:</label>
               <input
                 type="date"
                 value={bulkDueDate}
@@ -1107,7 +1107,7 @@ export default function QueueTable({
           {/* Previsão de entrega em lote — só ADMIN */}
           {someSelected && isAdmin && (
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 whitespace-nowrap">Prev. entrega em lote:</label>
+              <label className="text-xs text-gray-500 whitespace-nowrap">Prev. entrega tarefa:</label>
               <input
                 type="date"
                 value={bulkDueDate}
