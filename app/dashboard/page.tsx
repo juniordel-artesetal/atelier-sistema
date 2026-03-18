@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { getServerSession } from 'next-auth'
@@ -10,8 +9,8 @@ const DEPT_ORDER = [
 ]
 
 const DEPT_ICONS: Record<string, string> = {
-  dep_arte: '🎨', dep_arquivo: '🗂️', dep_impressao: '🖨️',
-  dep_prod_ext: '🏭', dep_prod_int: '🪡', dep_pronta: '✅', dep_expedicao: '📬',
+  dep_arte: '­ƒÄ¿', dep_arquivo: '­ƒùé´©Å', dep_impressao: '­ƒû¿´©Å',
+  dep_prod_ext: '­ƒÅ¡', dep_prod_int: '­ƒ¬í', dep_pronta: 'Ô£à', dep_expedicao: '­ƒô¼',
 }
 
 export default async function DashboardPage() {
@@ -81,7 +80,7 @@ export default async function DashboardPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">{isOp ? 'Visão do seu setor' : 'Visão geral da produção'}</p>
+        <p className="text-gray-500 text-sm mt-1">{isOp ? 'Vis├úo do seu setor' : 'Vis├úo geral da produ├º├úo'}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4">
@@ -91,7 +90,7 @@ export default async function DashboardPage() {
           <p className="text-xs text-gray-400 mt-1">pedidos pendentes</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <p className="text-sm text-gray-500 mb-1">Em Produção</p>
+          <p className="text-sm text-gray-500 mb-1">Em Produ├º├úo</p>
           <p className="text-3xl font-bold text-blue-500">{inProgress}</p>
           <p className="text-xs text-gray-400 mt-1">pedidos em andamento</p>
         </div>
@@ -107,9 +106,9 @@ export default async function DashboardPage() {
                   <p className="text-3xl font-bold text-teal-500">{posted}</p>
                   <p className="text-xs text-gray-400 mt-1">pedidos postados</p>
                 </div>
-                <span className="text-2xl opacity-60 group-hover:opacity-100">📬</span>
+                <span className="text-2xl opacity-60 group-hover:opacity-100">­ƒô¼</span>
               </div>
-              <p className="text-xs text-teal-500 mt-3 font-medium group-hover:underline">Ver todos os enviados →</p>
+              <p className="text-xs text-teal-500 mt-3 font-medium group-hover:underline">Ver todos os enviados ÔåÆ</p>
             </div>
           </Link>
           <Link href="/pedidos?status=CANCELLED">
@@ -120,9 +119,9 @@ export default async function DashboardPage() {
                   <p className="text-3xl font-bold text-red-400">{cancelled}</p>
                   <p className="text-xs text-gray-400 mt-1">pedidos cancelados</p>
                 </div>
-                <span className="text-2xl opacity-60 group-hover:opacity-100">❌</span>
+                <span className="text-2xl opacity-60 group-hover:opacity-100">ÔØî</span>
               </div>
-              <p className="text-xs text-red-400 mt-3 font-medium group-hover:underline">Ver todos os cancelados →</p>
+              <p className="text-xs text-red-400 mt-3 font-medium group-hover:underline">Ver todos os cancelados ÔåÆ</p>
             </div>
           </Link>
         </div>
@@ -136,7 +135,7 @@ export default async function DashboardPage() {
           <Link key={dept.id} href={`/setores/${dept.id}`}>
             <div className="bg-white rounded-xl border border-gray-100 p-5 hover:border-purple-200 hover:shadow-sm transition-all flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{DEPT_ICONS[dept.id] ?? '📁'}</span>
+                <span className="text-2xl">{DEPT_ICONS[dept.id] ?? '­ƒôü'}</span>
                 <div>
                   <p className="font-semibold text-gray-800 text-sm">{dept.name}</p>
                   <p className="text-xs text-gray-400">clique para ver a fila</p>
@@ -157,11 +156,11 @@ export default async function DashboardPage() {
           <div className="bg-white rounded-xl border border-red-100 overflow-hidden">
             <div className="px-5 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-lg">⚠️</span>
+                <span className="text-lg">ÔÜá´©Å</span>
                 <span className="font-semibold text-red-700">
                   {atrasadas.length > 0 ? `${atrasadas.length} tarefa(s) atrasada(s)` : ''}
-                  {atrasadas.length > 0 && vencendoHoje.length > 0 ? ' · ' : ''}
-                  {vencendoHoje.length > 0 ? `${vencendoHoje.length} vence(m) hoje/amanhã` : ''}
+                  {atrasadas.length > 0 && vencendoHoje.length > 0 ? ' ┬À ' : ''}
+                  {vencendoHoje.length > 0 ? `${vencendoHoje.length} vence(m) hoje/amanh├ú` : ''}
                 </span>
               </div>
               <span className="text-xs text-red-400">{tarefasAtrasadas.length} no total</span>
@@ -177,14 +176,14 @@ export default async function DashboardPage() {
                       <p className="font-medium text-gray-800 text-sm">{t.order.recipientName}</p>
                       <p className="text-xs text-gray-500">
                         {t.department.name}
-                        {t.responsible && ` · ${t.responsible.name}`}
-                        {t.order.externalId && ` · ${t.order.externalId}`}
+                        {t.responsible && ` ┬À ${t.responsible.name}`}
+                        {t.order.externalId && ` ┬À ${t.order.externalId}`}
                       </p>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                       atrasado ? 'bg-red-100 text-red-600' : diffDays === 0 ? 'bg-orange-100 text-orange-600' : 'bg-yellow-100 text-yellow-700'
                     }`}>
-                      {atrasado ? `Atrasado ${Math.abs(diffDays)}d` : diffDays === 0 ? 'Vence hoje' : 'Vence amanhã'}
+                      {atrasado ? `Atrasado ${Math.abs(diffDays)}d` : diffDays === 0 ? 'Vence hoje' : 'Vence amanh├ú'}
                     </span>
                   </div>
                 )
@@ -196,78 +195,4 @@ export default async function DashboardPage() {
     </div>
   )
 }
-=======
-import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 
-export default async function DashboardPage() {
-  const workspaceId = "ws_default";
-
-  // lista setores do workspace
-  const departments = await prisma.department.findMany({
-    where: { workspaceId },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
-
-  // contagem de itens na fila (todo/doing) por setor
-  const counts = await prisma.workItem.groupBy({
-    by: ["stepId", "status"],
-    where: {
-      status: { in: ["todo", "doing"] },
-      step: { workspaceId },
-    },
-    _count: { _all: true },
-  });
-
-  // precisamos mapear stepId -> departmentId
-  const steps = await prisma.workflowStep.findMany({
-    where: { workspaceId },
-    select: { id: true, departmentId: true },
-  });
-
-  const stepToDept = new Map(steps.map((s) => [s.id, s.departmentId]));
-
-  // soma por departamento
-  const deptTotals = new Map<string, number>();
-  for (const row of counts) {
-    const deptId = stepToDept.get(row.stepId);
-    if (!deptId) continue;
-    deptTotals.set(deptId, (deptTotals.get(deptId) ?? 0) + row._count._all);
-  }
-
-  return (
-    <div style={{ padding: 24 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Dashboard</h1>
-      <p style={{ marginTop: 6, opacity: 0.75 }}>
-        Selecione um setor para ver a fila (todo/doing).
-      </p>
-
-      <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 12 }}>
-        {departments.map((d) => {
-          const total = deptTotals.get(d.id) ?? 0;
-          return (
-            <Link
-              key={d.id}
-              href={`/setores/${d.id}?workspaceId=${workspaceId}`}
-              style={{
-                border: "1px solid #eee",
-                borderRadius: 14,
-                padding: 14,
-                textDecoration: "none",
-                color: "#111",
-                display: "block",
-              }}
-            >
-              <div style={{ fontWeight: 800 }}>{d.name}</div>
-              <div style={{ marginTop: 6, fontSize: 13, opacity: 0.7 }}>
-                {total} itens na fila
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
->>>>>>> 207ad57b321dc370732151e2e34243648c175230
