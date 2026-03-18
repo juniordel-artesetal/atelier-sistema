@@ -159,6 +159,24 @@ export default function QueueTable({
   const [editingArtStatus, setEditingArtStatus] = useState<string | null>(null)
   const [artStatusValue, setArtStatusValue]     = useState<string>('')
   const [savingArtStatus, setSavingArtStatus]   = useState(false)
+  // Estado local para responsável de produção com botão salvar
+  const [localProdResp, setLocalProdResp]     = useState<Record<string, string | null>>({})
+  const [savingProdRespId, setSavingProdRespId] = useState<string | null>(null)
+
+  async function handleSaveProdResp(itemId: string) {
+    const newVal = localProdResp[itemId] !== undefined ? localProdResp[itemId] : null
+    setSavingProdRespId(itemId)
+    try {
+      await fetch('/api/work-items/bulk-prod-resp', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workItemIds: [itemId], productionResponsibleId: newVal }),
+      })
+      router.refresh()
+    } finally {
+      setSavingProdRespId(null)
+    }
+  }
   const [filterResponsavel, setFilterResponsavel] = useState('')
   const [filterProdResp, setFilterProdResp]       = useState('')
   const [filterDevolvido, setFilterDevolvido]     = useState(false)
@@ -908,22 +926,15 @@ export default function QueueTable({
                   )}
 
                   {/* Responsável pela produção */}
-                  {/* No setor Arte: editável | Nos demais: somente leitura */}
-                  {isArteSector && responsaveisProducao.length > 0 && canManage ? (
+                  {/* No setor Arte: ADMIN/DELEGADOR pode editar | Nos demais: só ADMIN pode alterar */}
+                  {(isArteSector ? canManage : isAdmin) && responsaveisProducao.length > 0 ? (
                     <div className="mt-1.5 flex items-center gap-2">
                       <span className="text-xs text-gray-400">Resp. produção:</span>
                       <select
-                        value={item.productionResponsibleId ?? ''}
-                        onChange={async e => {
-                          await fetch('/api/work-items/bulk-prod-resp', {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              workItemIds: [item.id],
-                              productionResponsibleId: e.target.value || null,
-                            }),
-                          })
-                          router.refresh()
+                        value={localProdResp[item.id] !== undefined ? (localProdResp[item.id] ?? '') : (item.productionResponsibleId ?? '')}
+                        onChange={e => {
+                          const newVal = e.target.value || null
+                          setLocalProdResp(prev => ({ ...prev, [item.id]: newVal }))
                         }}
                         className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
                       >
@@ -932,6 +943,13 @@ export default function QueueTable({
                           <option key={r.id} value={r.id}>{r.name}</option>
                         ))}
                       </select>
+                      <button
+                        onClick={() => handleSaveProdResp(item.id)}
+                        disabled={savingProdRespId === item.id}
+                        className="text-xs bg-purple-600 text-white px-2 py-1 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                      >
+                        {savingProdRespId === item.id ? '...' : 'Salvar'}
+                      </button>
                     </div>
                   ) : item.productionResponsible ? (
                     <p className="text-xs mt-1.5">
