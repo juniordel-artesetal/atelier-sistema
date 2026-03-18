@@ -30,7 +30,7 @@ interface Order {
   createdAt: string
   store: { name: string } | null
   items: OrderItem[]
-  workItems: { step: { name: string } | null }[]
+  workItems: { step: { name: string } | null; responsible: { id: string; name: string } | null }[]
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -50,12 +50,15 @@ const STATUS_COLOR: Record<string, string> = {
 const ART_STATUS_LABEL: Record<string, string> = {
   APROVADO: 'Aprovado', ARTE_IGUAL: 'Arte Igual',
   ARTE_CLIENTE: 'Arte Cliente', PRODUZIDO_SEM_APROVACAO: 'Prod. s/ Aprov.',
+  EM_APROVACAO: 'Em Aprovacao', REPLICAR_ARTE: 'Replicar Arte',
 }
 const ART_STATUS_COLOR: Record<string, string> = {
   APROVADO:               'bg-green-100 text-green-700',
   ARTE_IGUAL:             'bg-blue-100 text-blue-700',
   ARTE_CLIENTE:           'bg-yellow-100 text-yellow-700',
   PRODUZIDO_SEM_APROVACAO:'bg-red-100 text-red-600',
+  EM_APROVACAO:           'bg-orange-100 text-orange-700',
+  REPLICAR_ARTE:          'bg-purple-100 text-purple-700',
 }
 
 const BOW_LABEL: Record<string, string> = {
@@ -110,13 +113,19 @@ function BowColorDot({ color }: { color: string | null }) {
   )
 }
 
-export default function PedidosTable({ orders, initialStatus = '' }: { orders: Order[], initialStatus?: string }) {
+export default function PedidosTable({ orders, initialStatus = '', operadores = [] }: { orders: Order[], initialStatus?: string, operadores?: { id: string; name: string }[] }) {
   const router = useRouter()
 
   const [search, setSearch]         = useState('')
   const [filterStatus, setStatus]   = useState(initialStatus)
-  const [filterDataEnvio, setEnvio] = useState('')
-  const [filterEntrada, setEntrada] = useState('')
+  const [filterDataEnvio, setEnvio]     = useState('')
+  const [filterEntrada, setEntrada]     = useState('')
+  const [filterBowType, setFilterBow]   = useState('')
+  const [filterProdType, setFilterProd] = useState('')
+  const [filterArtStatus, setFilterArt] = useState('')
+  const [filterLoja, setFilterLoja]     = useState('')
+  const [filterSetor, setFilterSetor]         = useState('')
+  const [filterResponsavel, setFilterResp]  = useState('')
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -143,9 +152,21 @@ export default function PedidosTable({ orders, initialStatus = '' }: { orders: O
         const entrada = new Date(order.createdAt).toISOString().split('T')[0]
         if (entrada !== filterEntrada) return false
       }
+      if (filterBowType && order.items[0]?.bowType !== filterBowType) return false
+      if (filterProdType && order.productionType !== filterProdType) return false
+      if (filterArtStatus && order.artStatus !== filterArtStatus) return false
+      if (filterLoja && order.store?.name !== filterLoja) return false
+      if (filterSetor) {
+        const setor = order.workItems[0]?.step?.name ?? ''
+        if (!setor.toLowerCase().includes(filterSetor.toLowerCase())) return false
+      }
+      if (filterResponsavel) {
+        const hasResp = order.workItems.some(wi => wi.responsible?.id === filterResponsavel)
+        if (!hasResp) return false
+      }
       return true
     })
-  }, [orders, search, filterStatus, filterDataEnvio, filterEntrada])
+  }, [orders, search, filterStatus, filterDataEnvio, filterEntrada, filterBowType, filterProdType, filterArtStatus, filterLoja, filterSetor, filterResponsavel])
 
   const inputClass = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
 
@@ -246,9 +267,67 @@ export default function PedidosTable({ orders, initialStatus = '' }: { orders: O
           <label className="block text-xs font-medium text-gray-500 mb-1">Data de envio</label>
           <input type="date" value={filterDataEnvio} onChange={e => setEnvio(e.target.value)} className={inputClass} />
         </div>
-        {(search || filterStatus || filterDataEnvio || filterEntrada) && (
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Tipo de Laco</label>
+          <select value={filterBowType} onChange={e => setFilterBow(e.target.value)} className={inputClass}>
+            <option value="">Todos</option>
+            <option value="NONE">Sem laco</option>
+            <option value="SIMPLE">Simples</option>
+            <option value="LUXURY">Luxo</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Tipo Producao</label>
+          <select value={filterProdType} onChange={e => setFilterProd(e.target.value)} className={inputClass}>
+            <option value="">Todos</option>
+            <option value="EXTERNA">Externa</option>
+            <option value="INTERNA">Interna</option>
+            <option value="PRONTA_ENTREGA">Pronta Entrega</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Status Arte</label>
+          <select value={filterArtStatus} onChange={e => setFilterArt(e.target.value)} className={inputClass}>
+            <option value="">Todos</option>
+            <option value="APROVADO">Aprovado</option>
+            <option value="ARTE_IGUAL">Arte Igual</option>
+            <option value="ARTE_CLIENTE">Arte Cliente</option>
+            <option value="PRODUZIDO_SEM_APROVACAO">Prod. s/ Aprov.</option>
+            <option value="EM_APROVACAO">Em Aprovacao</option>
+            <option value="REPLICAR_ARTE">Replicar Arte</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Loja</label>
+          <select value={filterLoja} onChange={e => setFilterLoja(e.target.value)} className={inputClass}>
+            <option value="">Todas</option>
+            <option value="Fofuras de Papel">Fofuras de Papel</option>
+            <option value="Artes e Tal">Artes e Tal</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Setor atual</label>
+          <input
+            value={filterSetor}
+            onChange={e => setFilterSetor(e.target.value)}
+            placeholder="Ex: Arte, Impressao..."
+            className={`${inputClass} w-36`}
+          />
+        </div>
+        {operadores.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Responsavel atribuido</label>
+            <select value={filterResponsavel} onChange={e => setFilterResp(e.target.value)} className={inputClass}>
+              <option value="">Todos</option>
+              {operadores.map(op => (
+                <option key={op.id} value={op.id}>{op.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {(search || filterStatus || filterDataEnvio || filterEntrada || filterBowType || filterProdType || filterArtStatus || filterLoja || filterSetor || filterResponsavel) && (
           <button
-            onClick={() => { setSearch(''); setStatus(''); setEnvio(''); setEntrada('') }}
+            onClick={() => { setSearch(''); setStatus(''); setEnvio(''); setEntrada(''); setFilterBow(''); setFilterProd(''); setFilterArt(''); setFilterLoja(''); setFilterSetor(''); setFilterResp('') }}
             className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
           >
             Limpar filtros

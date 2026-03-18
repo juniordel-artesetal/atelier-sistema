@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { getServerSession } from 'next-auth'
@@ -16,20 +18,30 @@ export default async function PedidosPage({ searchParams }: Props) {
 
   const { status } = await searchParams
 
-  const rawOrders = await prisma.order.findMany({
-    where: { workspaceId: 'ws_atelier', deletedAt: null },
-    include: {
-      store: true,
-      items: true,
-      workItems: {
-        where: { status: { in: ['TODO', 'DOING'] } },
-        include: { step: true },
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-      }
-    },
-    orderBy: { createdAt: 'desc' }
-  })
+  const [rawOrders, operadores] = await Promise.all([
+    prisma.order.findMany({
+      where: { workspaceId: 'ws_atelier', deletedAt: null },
+      include: {
+        store: true,
+        items: true,
+        workItems: {
+          where: { status: { in: ['TODO', 'DOING'] } },
+          include: {
+            step: true,
+            responsible: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.user.findMany({
+      where: { workspaceId: 'ws_atelier', active: true, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' }
+    })
+  ])
 
   const orders = rawOrders.map(o => ({
     ...o,
@@ -56,7 +68,7 @@ export default async function PedidosPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <PedidosTable orders={orders} initialStatus={status ?? ''} />
+      <PedidosTable orders={orders as any} initialStatus={status ?? ''} operadores={operadores} />
     </div>
   )
 }
