@@ -152,6 +152,12 @@ export default function QueueTable({
   const [savingArtStatus, setSavingArtStatus]   = useState(false)
   const [filterResponsavel, setFilterResponsavel] = useState('')
   const [filterProdResp, setFilterProdResp]       = useState('')
+  const [filterDevolvido, setFilterDevolvido]     = useState(false)
+  const [filterBowType, setFilterBowType]         = useState('')
+  const [filterLoja, setFilterLoja]               = useState('')
+  const [filterProdType, setFilterProdTipo]       = useState('')
+  const [filterArtStatus, setFilterArtStatus]     = useState('')
+  const [filterDueDate, setFilterDueDate]         = useState('')
 
   const isAdmin = role === 'ADMIN'
 
@@ -315,6 +321,16 @@ export default function QueueTable({
       if (filterStatus && item.status !== filterStatus) return false
       if (filterResponsavel && item.responsible?.id !== filterResponsavel) return false
       if (filterProdResp && item.productionResponsibleId !== filterProdResp) return false
+      if (filterDevolvido && !item.sectorNotes?.startsWith('[DEVOLVIDO]')) return false
+      if (filterBowType && item.order.items[0]?.bowType !== filterBowType) return false
+      if (filterLoja && item.order.store.name !== filterLoja) return false
+      if (filterProdType && item.order.productionType !== filterProdType) return false
+      if (filterArtStatus && item.order.artStatus !== filterArtStatus) return false
+      if (filterDueDate) {
+        if (!item.dueDate) return false
+        const d = new Date(item.dueDate).toISOString().split('T')[0]
+        if (d !== filterDueDate) return false
+      }
       if (filterEnvio && item.order.dueDate) {
         const d = new Date(item.order.dueDate).toISOString().split('T')[0]
         if (d !== filterEnvio) return false
@@ -325,9 +341,9 @@ export default function QueueTable({
       }
       return true
     })
-  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp])
+  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterDevolvido, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate])
 
-  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp)
+  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterDevolvido || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate)
   const inputClass = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
 
   // Derivados de filtered — definidos aqui pois dependem do useMemo acima
@@ -455,9 +471,55 @@ export default function QueueTable({
           <label className="block text-xs font-medium text-gray-500 mb-1">Data de entrada</label>
           <input type="date" value={filterEntrada} onChange={e => setFilterEntrada(e.target.value)} className={inputClass} />
         </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Tipo de Laco</label>
+          <select value={filterBowType} onChange={e => setFilterBowType(e.target.value)} className={inputClass}>
+            <option value="">Todos</option>
+            <option value="NONE">Sem laco</option>
+            <option value="SIMPLE">Simples</option>
+            <option value="LUXURY">Luxo</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Tipo Producao</label>
+          <select value={filterProdType} onChange={e => setFilterProdTipo(e.target.value)} className={inputClass}>
+            <option value="">Todos</option>
+            <option value="EXTERNA">Externa</option>
+            <option value="INTERNA">Interna</option>
+            <option value="PRONTA_ENTREGA">Pronta Entrega</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Status Arte</label>
+          <select value={filterArtStatus} onChange={e => setFilterArtStatus(e.target.value)} className={inputClass}>
+            <option value="">Todos</option>
+            <option value="APROVADO">Aprovado</option>
+            <option value="ARTE_IGUAL">Arte Igual</option>
+            <option value="ARTE_CLIENTE">Arte Cliente</option>
+            <option value="PRODUZIDO_SEM_APROVACAO">Prod. s/ Aprov.</option>
+            <option value="EM_APROVACAO">Em Aprovacao</option>
+            <option value="REPLICAR_ARTE">Replicar Arte</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Prev. entrega tarefa</label>
+          <input type="date" value={filterDueDate} onChange={e => setFilterDueDate(e.target.value)} className={inputClass} />
+        </div>
+        <div className="flex items-center gap-2 mt-4">
+          <input
+            type="checkbox"
+            id="filterDevolvido"
+            checked={filterDevolvido}
+            onChange={e => setFilterDevolvido(e.target.checked)}
+            className="accent-red-500 w-4 h-4 cursor-pointer"
+          />
+          <label htmlFor="filterDevolvido" className="text-sm text-red-500 font-medium cursor-pointer">
+            Somente devolvidos
+          </label>
+        </div>
         {hasFilter && (
           <button
-            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp('') }}
+            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterDevolvido(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate('') }}
             className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
           >
             Limpar filtros
