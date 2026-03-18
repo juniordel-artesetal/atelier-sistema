@@ -75,6 +75,7 @@ export async function GET(req: NextRequest) {
       totalTarefas: number
       totalItens: number    // prod externa: soma totalItems
       totalPedidos: number  // arte e outros: soma de tarefas
+      totalBowQty:  number
       items: any[]
     }> = {}
 
@@ -154,3 +155,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Erro ao buscar produtividade' }, { status: 500 })
   }
 }
+
