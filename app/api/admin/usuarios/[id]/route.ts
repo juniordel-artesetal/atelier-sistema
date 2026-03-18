@@ -8,11 +8,15 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    const { name, email, password, role, departmentIds, active } = await req.json()
+    const { name, email, password, role, departmentIds, active, restore } = await req.json()
 
     const data: any = { name, email, role }
     if (typeof active === 'boolean') data.active = active
     if (password) data.password = await bcrypt.hash(password, 10)
+    if (restore) {
+      data.deletedAt = null
+      data.active    = true
+    }
 
     // Atualiza setores — apaga todos e recria
     await prisma.userDepartment.deleteMany({ where: { userId: id } })
@@ -43,7 +47,7 @@ export async function DELETE(
     const { id } = await params
     await prisma.user.update({
       where: { id },
-      data: { deletedAt: new Date() }
+      data: { deletedAt: new Date(), active: false }
     })
     return NextResponse.json({ ok: true })
   } catch (error) {

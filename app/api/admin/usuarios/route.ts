@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 
 export async function GET() {
   const users = await prisma.user.findMany({
-    where: { workspaceId: 'ws_atelier', deletedAt: null },
+    where: { workspaceId: 'ws_atelier' }, // sem filtro deletedAt — mostra todos
     include: { departments: { include: { department: true } } },
     orderBy: { name: 'asc' }
   })
@@ -16,12 +16,12 @@ export async function POST(req: NextRequest) {
     const { name, email, password, role, departmentIds } = await req.json()
 
     if (!name || !email || !password || !role) {
-      return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
+      return NextResponse.json({ error: 'Campos obrigatorios faltando' }, { status: 400 })
     }
 
     const exists = await prisma.user.findUnique({ where: { email } })
     if (exists) {
-      return NextResponse.json({ error: 'Email já cadastrado' }, { status: 400 })
+      return NextResponse.json({ error: 'Email ja cadastrado' }, { status: 400 })
     }
 
     const hashed = await bcrypt.hash(password, 10)
@@ -40,6 +40,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(user)
   } catch (error) {
     console.error(error)
-    return NextResponse.json({ error: 'Erro ao criar usuário' }, { status: 500 })
+    return NextResponse.json({ error: 'Erro ao criar usuario' }, { status: 500 })
   }
 }

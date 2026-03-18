@@ -389,8 +389,8 @@ export default function QueueTable({
   async function handleSaveArtStatus(orderId: string) {
     setSavingArtStatus(true)
     try {
-      await fetch(`/api/orders/${orderId}`, {
-        method: 'PUT',
+      await fetch(`/api/orders/${orderId}/art-status`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ artStatus: artStatusValue || null }),
       })
