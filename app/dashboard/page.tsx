@@ -9,8 +9,8 @@ const DEPT_ORDER = [
 ]
 
 const DEPT_ICONS: Record<string, string> = {
-  dep_arte: '­ƒÄ¿', dep_arquivo: '­ƒùé´©Å', dep_impressao: '­ƒû¿´©Å',
-  dep_prod_ext: '­ƒÅ¡', dep_prod_int: '­ƒ¬í', dep_pronta: 'Ô£à', dep_expedicao: '­ƒô¼',
+  dep_arte: 'Arte', dep_arquivo: 'Arq', dep_impressao: 'Imp',
+  dep_prod_ext: 'PE', dep_prod_int: 'PI', dep_pronta: 'PrE', dep_expedicao: 'Exp',
 }
 
 export default async function DashboardPage() {
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">{isOp ? 'Vis├úo do seu setor' : 'Vis├úo geral da produ├º├úo'}</p>
+        <p className="text-gray-500 text-sm mt-1">{isOp ? 'Visão do seu setor' : 'Visão geral da produção'}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4">
@@ -90,7 +90,7 @@ export default async function DashboardPage() {
           <p className="text-xs text-gray-400 mt-1">pedidos pendentes</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <p className="text-sm text-gray-500 mb-1">Em Produ├º├úo</p>
+          <p className="text-sm text-gray-500 mb-1">Em Produção</p>
           <p className="text-3xl font-bold text-blue-500">{inProgress}</p>
           <p className="text-xs text-gray-400 mt-1">pedidos em andamento</p>
         </div>
@@ -106,9 +106,9 @@ export default async function DashboardPage() {
                   <p className="text-3xl font-bold text-teal-500">{posted}</p>
                   <p className="text-xs text-gray-400 mt-1">pedidos postados</p>
                 </div>
-                <span className="text-2xl opacity-60 group-hover:opacity-100">­ƒô¼</span>
+                
               </div>
-              <p className="text-xs text-teal-500 mt-3 font-medium group-hover:underline">Ver todos os enviados ÔåÆ</p>
+              <p className="text-xs text-teal-500 mt-3 font-medium group-hover:underline">Ver todos os enviados →</p>
             </div>
           </Link>
           <Link href="/pedidos?status=CANCELLED">
@@ -119,9 +119,9 @@ export default async function DashboardPage() {
                   <p className="text-3xl font-bold text-red-400">{cancelled}</p>
                   <p className="text-xs text-gray-400 mt-1">pedidos cancelados</p>
                 </div>
-                <span className="text-2xl opacity-60 group-hover:opacity-100">ÔØî</span>
+                
               </div>
-              <p className="text-xs text-red-400 mt-3 font-medium group-hover:underline">Ver todos os cancelados ÔåÆ</p>
+              <p className="text-xs text-red-400 mt-3 font-medium group-hover:underline">Ver todos os cancelados →</p>
             </div>
           </Link>
         </div>
@@ -135,7 +135,7 @@ export default async function DashboardPage() {
           <Link key={dept.id} href={`/setores/${dept.id}`}>
             <div className="bg-white rounded-xl border border-gray-100 p-5 hover:border-purple-200 hover:shadow-sm transition-all flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{DEPT_ICONS[dept.id] ?? '­ƒôü'}</span>
+                <span className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-xs font-bold flex-shrink-0">{DEPT_ICONS[dept.id] ?? dept.name[0]}</span>
                 <div>
                   <p className="font-semibold text-gray-800 text-sm">{dept.name}</p>
                   <p className="text-xs text-gray-400">clique para ver a fila</p>
@@ -156,11 +156,11 @@ export default async function DashboardPage() {
           <div className="bg-white rounded-xl border border-red-100 overflow-hidden">
             <div className="px-5 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-lg">ÔÜá´©Å</span>
+                
                 <span className="font-semibold text-red-700">
                   {atrasadas.length > 0 ? `${atrasadas.length} tarefa(s) atrasada(s)` : ''}
-                  {atrasadas.length > 0 && vencendoHoje.length > 0 ? ' ┬À ' : ''}
-                  {vencendoHoje.length > 0 ? `${vencendoHoje.length} vence(m) hoje/amanh├ú` : ''}
+                  {atrasadas.length > 0 && vencendoHoje.length > 0 ? ' · ' : ''}
+                  {vencendoHoje.length > 0 ? `${vencendoHoje.length} vence(m) hoje/amanhã` : ''}
                 </span>
               </div>
               <span className="text-xs text-red-400">{tarefasAtrasadas.length} no total</span>
@@ -176,14 +176,14 @@ export default async function DashboardPage() {
                       <p className="font-medium text-gray-800 text-sm">{t.order.recipientName}</p>
                       <p className="text-xs text-gray-500">
                         {t.department.name}
-                        {t.responsible && ` ┬À ${t.responsible.name}`}
-                        {t.order.externalId && ` ┬À ${t.order.externalId}`}
+                        {t.responsible && ` · ${t.responsible.name}`}
+                        {t.order.externalId && ` · ${t.order.externalId}`}
                       </p>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                       atrasado ? 'bg-red-100 text-red-600' : diffDays === 0 ? 'bg-orange-100 text-orange-600' : 'bg-yellow-100 text-yellow-700'
                     }`}>
-                      {atrasado ? `Atrasado ${Math.abs(diffDays)}d` : diffDays === 0 ? 'Vence hoje' : 'Vence amanh├ú'}
+                      {atrasado ? `Atrasado ${Math.abs(diffDays)}d` : diffDays === 0 ? 'Vence hoje' : 'Vence amanhã'}
                     </span>
                   </div>
                 )
@@ -195,4 +195,3 @@ export default async function DashboardPage() {
     </div>
   )
 }
-

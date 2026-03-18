@@ -4,20 +4,32 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { useEffect, useState } from 'react'
+import {
+  Home, LayoutDashboard, Package, Palette, Archive, Printer,
+  Factory, Scissors, CheckSquare, Send, Users, UserCheck,
+  Paintbrush, BarChart2, LogOut, Menu, X, ShoppingBag
+} from 'lucide-react'
 
 const links = [
-  { href: '/modulos',   label: 'Início',    icon: '🏠' },
-  { href: '/dashboard', label: 'Dashboard', icon: '📊' },
+  { href: '/modulos',   label: 'Início',    icon: Home },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 ]
 
 const setores = [
-  { href: '/setores/dep_arte',      label: 'Arte',                 icon: '🎨',  depId: 'dep_arte'      },
-  { href: '/setores/dep_arquivo',   label: 'Arquivo de Impressão', icon: '🗂️', depId: 'dep_arquivo'   },
-  { href: '/setores/dep_impressao', label: 'Impressão',            icon: '🖨️', depId: 'dep_impressao' },
-  { href: '/setores/dep_prod_ext',  label: 'Produção Externa',     icon: '🏭',  depId: 'dep_prod_ext'  },
-  { href: '/setores/dep_prod_int',  label: 'Produção Interna',     icon: '🪡',  depId: 'dep_prod_int'  },
-  { href: '/setores/dep_pronta',    label: 'Pronta Entrega',       icon: '✅',  depId: 'dep_pronta'    },
-  { href: '/setores/dep_expedicao', label: 'Expedição',            icon: '📬',  depId: 'dep_expedicao' },
+  { href: '/setores/dep_arte',      label: 'Arte',                 icon: Palette,    depId: 'dep_arte'      },
+  { href: '/setores/dep_arquivo',   label: 'Arquivo de Impressão', icon: Archive,    depId: 'dep_arquivo'   },
+  { href: '/setores/dep_impressao', label: 'Impressão',            icon: Printer,    depId: 'dep_impressao' },
+  { href: '/setores/dep_prod_ext',  label: 'Produção Externa',     icon: Factory,    depId: 'dep_prod_ext'  },
+  { href: '/setores/dep_prod_int',  label: 'Produção Interna',     icon: Scissors,   depId: 'dep_prod_int'  },
+  { href: '/setores/dep_pronta',    label: 'Pronta Entrega',       icon: CheckSquare,depId: 'dep_pronta'    },
+  { href: '/setores/dep_expedicao', label: 'Expedição',            icon: Send,       depId: 'dep_expedicao' },
+]
+
+const adminLinks = [
+  { href: '/admin/usuarios',              label: 'Usuários',       icon: Users      },
+  { href: '/admin/responsaveis-producao', label: 'Resp. Producao', icon: UserCheck  },
+  { href: '/admin/temas',                 label: 'Temas e Cores',  icon: Paintbrush },
+  { href: '/admin/produtividade',         label: 'Produtividade',  icon: BarChart2  },
 ]
 
 export default function Sidebar() {
@@ -37,8 +49,7 @@ export default function Sidebar() {
 
   const userDeptIds: string[] = mounted
     ? (session?.user?.departments ?? []).map((d: any) =>
-        typeof d === 'string' ? d : d.departmentId
-      )
+        typeof d === 'string' ? d : d.departmentId)
     : []
 
   const setoresVisiveis = isOp
@@ -50,44 +61,36 @@ export default function Sidebar() {
       pathname === href ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50'
     }`
 
-  const adminLinks = [
-    { href: '/admin/usuarios',              label: 'Usuários',       icon: '👥' },
-    { href: '/admin/responsaveis-producao', label: 'Resp. Produção', icon: '👷' },
-    { href: '/admin/temas',                 label: 'Temas e Cores',  icon: '🖌️' },
-    { href: '/admin/produtividade',         label: 'Produtividade',  icon: '📈' },
-  ]
-
   function SidebarContent() {
     return (
       <>
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <p className="font-bold text-gray-800 text-lg">Ateliê</p>
-            <p className="text-xs text-gray-400">Sistema de Produção</p>
+            <p className="font-bold text-gray-800 text-lg">Atelie</p>
+            <p className="text-xs text-gray-400">Sistema de Producao</p>
           </div>
           <button
             onClick={() => setMobileOpen(false)}
-            className="md:hidden p-1 rounded-lg hover:bg-gray-100 text-gray-500 text-lg leading-none"
+            className="md:hidden p-1 rounded-lg hover:bg-gray-100 text-gray-500"
           >
-            ✕
+            <X size={18} />
           </button>
         </div>
 
         <nav className="flex flex-col gap-1">
-          {links.map(link => (
-            <Link key={link.href} href={link.href} className={lc(link.href)}>
-              <span>{link.icon}</span>{link.label}
+          {links.map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href} className={lc(href)}>
+              <Icon size={16} />{label}
             </Link>
           ))}
-          {/* Pedidos: ADMIN/DELEGADOR veem lista geral; OPERADOR vê Meus Pedidos */}
           {!isOp && (
             <Link href="/pedidos" className={lc('/pedidos')}>
-              <span>📦</span>Pedidos
+              <Package size={16} />Pedidos
             </Link>
           )}
           {isOp && (
             <Link href="/meus-pedidos" className={lc('/meus-pedidos')}>
-              <span>📋</span>Meus Pedidos
+              <ShoppingBag size={16} />Meus Pedidos
             </Link>
           )}
         </nav>
@@ -95,13 +98,13 @@ export default function Sidebar() {
         <div className="mt-6">
           <p className="text-xs font-semibold text-gray-400 uppercase px-3 mb-2">Setores</p>
           <nav className="flex flex-col gap-1">
-            {setoresVisiveis.map(link => (
-              <Link key={link.href} href={link.href} className={lc(link.href)}>
-                <span>{link.icon}</span>{link.label}
+            {setoresVisiveis.map(({ href, label, icon: Icon }) => (
+              <Link key={href} href={href} className={lc(href)}>
+                <Icon size={16} />{label}
               </Link>
             ))}
             {isOp && setoresVisiveis.length === 0 && (
-              <p className="text-xs text-gray-400 px-3 py-2">Nenhum setor atribuído</p>
+              <p className="text-xs text-gray-400 px-3 py-2">Nenhum setor atribuido</p>
             )}
           </nav>
         </div>
@@ -110,9 +113,9 @@ export default function Sidebar() {
           <div className="mt-6">
             <p className="text-xs font-semibold text-gray-400 uppercase px-3 mb-2">Admin</p>
             <nav className="flex flex-col gap-1">
-              {adminLinks.map(link => (
-                <Link key={link.href} href={link.href} className={lc(link.href)}>
-                  <span>{link.icon}</span>{link.label}
+              {adminLinks.map(({ href, label, icon: Icon }) => (
+                <Link key={href} href={href} className={lc(href)}>
+                  <Icon size={16} />{label}
                 </Link>
               ))}
             </nav>
@@ -133,7 +136,7 @@ export default function Sidebar() {
             onClick={() => signOut({ callbackUrl: '/login' })}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
           >
-            <span>🚪</span>Sair
+            <LogOut size={16} />Sair
           </button>
         </div>
       </>
@@ -147,23 +150,18 @@ export default function Sidebar() {
         <SidebarContent />
       </aside>
 
-      {/* MOBILE: hamburguer */}
+      {/* MOBILE */}
       <div className="md:hidden">
         <button
           onClick={() => setMobileOpen(true)}
           className="fixed top-3 left-4 z-40 p-2 rounded-lg bg-white border border-gray-200 shadow-sm"
           aria-label="Abrir menu"
         >
-          <div className="w-5 h-0.5 bg-gray-600 mb-1.5" />
-          <div className="w-5 h-0.5 bg-gray-600 mb-1.5" />
-          <div className="w-5 h-0.5 bg-gray-600" />
+          <Menu size={20} className="text-gray-600" />
         </button>
 
         {mobileOpen && (
-          <div
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={() => setMobileOpen(false)}
-          />
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setMobileOpen(false)} />
         )}
 
         <aside className={`fixed top-0 left-0 h-full w-72 bg-white z-50 flex flex-col py-6 px-4 shadow-2xl transform transition-transform duration-300 overflow-y-auto ${
