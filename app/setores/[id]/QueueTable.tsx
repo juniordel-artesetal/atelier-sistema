@@ -180,6 +180,7 @@ export default function QueueTable({
   const [filterResponsavel, setFilterResponsavel] = useState('')
   const [filterProdResp, setFilterProdResp]       = useState('')
   const [filterDevolvido, setFilterDevolvido]     = useState(false)
+  const [filterBowColor, setFilterBowColor]       = useState('')
   const [filterBowType, setFilterBowType]         = useState('')
   const [filterLoja, setFilterLoja]               = useState('')
   const [filterProdType, setFilterProdTipo]       = useState('')
@@ -349,6 +350,10 @@ export default function QueueTable({
       if (filterResponsavel && item.responsible?.id !== filterResponsavel) return false
       if (filterProdResp && item.productionResponsibleId !== filterProdResp) return false
       if (filterDevolvido && !item.sectorNotes?.startsWith('[DEVOLVIDO]')) return false
+      if (filterBowColor) {
+        const color = item.order.items[0]?.bowColor?.toLowerCase().trim() ?? ''
+        if (!color.includes(filterBowColor.toLowerCase().trim())) return false
+      }
       if (filterBowType && item.order.items[0]?.bowType !== filterBowType) return false
       if (filterLoja && item.order.store.name !== filterLoja) return false
       if (filterProdType && item.order.productionType !== filterProdType) return false
@@ -374,9 +379,9 @@ export default function QueueTable({
       }
       return true
     })
-  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterDevolvido, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate])
+  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterDevolvido, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate, filterBowColor])
 
-  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterDevolvido || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate)
+  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterDevolvido || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate || filterBowColor)
   const inputClass = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
 
   // Derivados de filtered — definidos aqui pois dependem do useMemo acima
@@ -387,6 +392,13 @@ export default function QueueTable({
   const totalItemsSelected = filtered
     .filter(i => selectedIds.has(i.id))
     .reduce((sum, i) => sum + (i.order.items[0]?.totalItems ?? 0), 0)
+
+  // Soma de laços da cor filtrada
+  const totalBowColorSelected = filterBowColor
+    ? filtered
+        .filter(i => selectedIds.has(i.id))
+        .reduce((sum, i) => sum + (i.order.items[0]?.bowQty ?? 0), 0)
+    : 0
 
 
   async function handleAssign(workItemId: string) {
@@ -514,6 +526,15 @@ export default function QueueTable({
           </select>
         </div>
         <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Cor do Laco</label>
+          <input
+            value={filterBowColor}
+            onChange={e => setFilterBowColor(e.target.value)}
+            placeholder="Ex: Rosa, Azul..."
+            className={`${inputClass} w-32`}
+          />
+        </div>
+        <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Tipo Producao</label>
           <select value={filterProdType} onChange={e => setFilterProdTipo(e.target.value)} className={inputClass}>
             <option value="">Todos</option>
@@ -552,7 +573,7 @@ export default function QueueTable({
         </div>
         {hasFilter && (
           <button
-            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterDevolvido(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate('') }}
+            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterDevolvido(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate(''); setFilterBowColor('') }}
             className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
           >
             Limpar filtros
@@ -584,6 +605,11 @@ export default function QueueTable({
           {someSelected && totalItemsSelected > 0 && (
             <span className="text-sm font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1 rounded-lg">
               Total de itens: {totalItemsSelected}
+            </span>
+          )}
+          {someSelected && filterBowColor && totalBowColorSelected > 0 && (
+            <span className="text-sm font-bold text-pink-700 bg-pink-50 border border-pink-200 px-3 py-1 rounded-lg">
+              Lacos {filterBowColor}: {totalBowColorSelected}
             </span>
           )}
 
@@ -1073,6 +1099,11 @@ export default function QueueTable({
           {someSelected && totalItemsSelected > 0 && (
             <span className="text-sm font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1 rounded-lg">
               Total de itens: {totalItemsSelected}
+            </span>
+          )}
+          {someSelected && filterBowColor && totalBowColorSelected > 0 && (
+            <span className="text-sm font-bold text-pink-700 bg-pink-50 border border-pink-200 px-3 py-1 rounded-lg">
+              Lacos {filterBowColor}: {totalBowColorSelected}
             </span>
           )}
 
