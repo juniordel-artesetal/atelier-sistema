@@ -245,6 +245,32 @@ model ProductionResponsible {
 
   @@index([workspaceId])
 }
+model BowStock {
+  id          String   @id @default(cuid())
+  workspaceId String
+  bowColor    String
+  bowType     String   @default("SIMPLE")
+  quantity    Int      @default(0)
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([workspaceId])
+}
+
+model BowStockEntry {
+  id          String   @id @default(cuid())
+  workspaceId String
+  bowColor    String
+  bowType     String   @default("SIMPLE")
+  quantity    Int
+  userId      String
+  userName    String
+  notes       String?
+  responsavel String?
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId])
+  @@index([userId])
+}
 enum UserRole {
   ADMIN
   DELEGADOR

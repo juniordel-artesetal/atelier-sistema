@@ -96,6 +96,18 @@ export default function Sidebar() {
         </nav>
 
         <div className="mt-6">
+          <p className="text-xs font-semibold text-gray-400 uppercase px-3 mb-2">Lacos</p>
+          <nav className="flex flex-col gap-1">
+            <Link href="/lacos/estoque" className={lc('/lacos/estoque')}>
+              <span style={{fontSize:14}}>&#127380;</span> Estoque
+            </Link>
+            <Link href="/lacos/lancar" className={lc('/lacos/lancar')}>
+              <span style={{fontSize:14}}>&#43;</span> Lancar Producao
+            </Link>
+          </nav>
+        </div>
+
+        <div className="mt-6">
           <p className="text-xs font-semibold text-gray-400 uppercase px-3 mb-2">Setores</p>
           <nav className="flex flex-col gap-1">
             {setoresVisiveis.map(({ href, label, icon: Icon }) => (

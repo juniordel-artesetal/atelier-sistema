@@ -23,7 +23,7 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) return NextResponse.json({ error: 'N├úo autorizado' }, { status: 401 })
+    if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
     const { id } = await params
     const body = await req.json().catch(() => ({}))
@@ -34,31 +34,32 @@ export async function POST(
       include: { step: true, order: true }
     })
 
-    if (!workItem) return NextResponse.json({ error: 'Item n├úo encontrado' }, { status: 404 })
+    if (!workItem) return NextResponse.json({ error: 'Item não encontrado' }, { status: 404 })
 
     const userName = session.user.name
     const userId   = session.user.id
 
-    // ÔöÇÔöÇ DEVOLU├ç├âO ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    // ── DEVOLUÇÃO ──────────────────────────────────────────────────
     if (action === 'revert') {
       if (!targetStepId) {
-        return NextResponse.json({ error: 'Setor de destino obrigat├│rio' }, { status: 400 })
+        return NextResponse.json({ error: 'Setor de destino obrigatório' }, { status: 400 })
       }
 
       const targetStep = await prisma.workflowStep.findUnique({ where: { id: targetStepId } })
-      if (!targetStep) return NextResponse.json({ error: 'Setor n├úo encontrado' }, { status: 404 })
+      if (!targetStep) return NextResponse.json({ error: 'Setor não encontrado' }, { status: 404 })
 
       await prisma.$transaction([
         prisma.workItem.update({ where: { id }, data: { status: 'CANCELLED' } }),
         prisma.workItem.create({
           data: {
-            workspaceId:             workItem.workspaceId,
-            orderId:                 workItem.orderId,
-            orderItemId:             workItem.orderItemId,
-            stepId:                  targetStepId,
-            departmentId:            targetStep.departmentId,
-            status:                  'TODO',
-            sectorNotes:             motivo ? `[DEVOLVIDO] ${motivo}` : '[DEVOLVIDO]',
+            workspaceId:  workItem.workspaceId,
+            orderId:      workItem.orderId,
+            orderItemId:  workItem.orderItemId,
+            stepId:       targetStepId,
+            departmentId: targetStep.departmentId,
+            status:       'TODO',
+            sectorNotes:  motivo ? `[DEVOLVIDO] ${motivo}` : '[DEVOLVIDO]',
+            // Mantém o responsável de produção já definido
             productionResponsibleId: workItem.productionResponsibleId ?? null,
           }
         }),
@@ -68,18 +69,18 @@ export async function POST(
         })
       ])
 
-      // Hist├│rico de devolu├º├úo
+      // Histórico de devolução
       await addHistory(
         workItem.orderId, userId, userName,
         'setor',
         `${workItem.step.name} (devolvido)`,
-        `${targetStep.name}${motivo ? ` ÔÇö motivo: ${motivo}` : ''}`
+        `${targetStep.name}${motivo ? ` — motivo: ${motivo}` : ''}`
       )
 
       return NextResponse.json({ ok: true, action: 'reverted' })
     }
 
-    // ÔöÇÔöÇ INICIAR ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    // ── INICIAR ────────────────────────────────────────────────────
     if (workItem.status === 'TODO') {
       await prisma.workItem.update({
         where: { id },
@@ -90,18 +91,18 @@ export async function POST(
         data: { status: 'IN_PROGRESS' }
       })
 
-      // Hist├│rico de in├¡cio
+      // Histórico de início
       await addHistory(
         workItem.orderId, userId, userName,
         'setor',
-        `${workItem.step.name} ÔÇö Aguardando`,
-        `${workItem.step.name} ÔÇö Em andamento`
+        `${workItem.step.name} — Aguardando`,
+        `${workItem.step.name} — Em andamento`
       )
 
       return NextResponse.json({ ok: true, status: 'DOING' })
     }
 
-    // ÔöÇÔöÇ CONCLUIR ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    // ── CONCLUIR ───────────────────────────────────────────────────
     if (workItem.status === 'DOING') {
       const currentStep = workItem.step
       let nextStep = null
@@ -111,7 +112,7 @@ export async function POST(
 
         if (!productionType) {
           return NextResponse.json({
-            error: 'Defina o Tipo de Produ├º├úo no pedido antes de concluir a Impress├úo.'
+            error: 'Defina o Tipo de Produção no pedido antes de concluir a Impressão.'
           }, { status: 400 })
         }
 
@@ -148,20 +149,58 @@ export async function POST(
       })
 
       if (nextStep) {
+        // Verificar estoque de laços ao entrar em produção
+        let estoqueInsuficiente = false
+        const prodDepts = ['dep_prod_ext', 'dep_prod_int', 'dep_pronta']
+        if (prodDepts.includes(nextStep.departmentId) && workItem.orderItemId) {
+          const orderItem = await prisma.orderItem.findUnique({
+            where: { id: workItem.orderItemId }
+          })
+          if (orderItem?.bowColor && orderItem?.bowType && orderItem.bowType !== 'NONE' && orderItem.bowQty) {
+            const bowColorUpper = orderItem.bowColor.trim().toUpperCase()
+            const stock = await prisma.bowStock.findFirst({
+              where: { workspaceId: 'ws_atelier', bowColor: bowColorUpper, bowType: orderItem.bowType }
+            })
+            const estoqueAtual = stock?.quantity ?? 0
+            if (estoqueAtual < orderItem.bowQty) {
+              estoqueInsuficiente = true
+            }
+          }
+        }
+
         await prisma.workItem.create({
           data: {
-            workspaceId:             workItem.workspaceId,
-            orderId:                 workItem.orderId,
-            orderItemId:             workItem.orderItemId,
-            stepId:                  nextStep.id,
-            departmentId:            nextStep.departmentId,
-            status:                  'TODO',
-            // Propaga o respons├ível pela produ├º├úo definido no setor Arte
+            workspaceId:  workItem.workspaceId,
+            orderId:      workItem.orderId,
+            orderItemId:  workItem.orderItemId,
+            stepId:       nextStep.id,
+            departmentId: nextStep.departmentId,
+            status:       'TODO',
             productionResponsibleId: workItem.productionResponsibleId ?? null,
+            sectorNotes: estoqueInsuficiente ? '[ESTOQUE_INSUFICIENTE]' : null,
           }
         })
 
-        // Hist├│rico de avan├ºo de setor
+        // Ao chegar na Expedição, descontar laços do estoque
+        if (nextStep.departmentId === 'dep_expedicao' && workItem.orderItemId) {
+          const orderItem = await prisma.orderItem.findUnique({
+            where: { id: workItem.orderItemId }
+          })
+          if (orderItem?.bowColor && orderItem?.bowType && orderItem.bowType !== 'NONE' && orderItem.bowQty) {
+            const bowColorUpper = orderItem.bowColor.trim().toUpperCase()
+            const existing = await prisma.bowStock.findFirst({
+              where: { workspaceId: 'ws_atelier', bowColor: bowColorUpper, bowType: orderItem.bowType }
+            })
+            if (existing) {
+              await prisma.bowStock.update({
+                where: { id: existing.id },
+                data:  { quantity: Math.max(0, existing.quantity - orderItem.bowQty) }
+              })
+            }
+          }
+        }
+
+        // Histórico de avanço de setor
         await addHistory(
           workItem.orderId, userId, userName,
           'setor',
@@ -174,7 +213,7 @@ export async function POST(
           data: { status: 'POSTED' }
         })
 
-        // Hist├│rico de postagem
+        // Histórico de postagem
         await addHistory(
           workItem.orderId, userId, userName,
           'setor',
@@ -186,11 +225,10 @@ export async function POST(
       return NextResponse.json({ ok: true, status: 'DONE' })
     }
 
-    return NextResponse.json({ error: 'A├º├úo inv├ílida para o status atual' }, { status: 400 })
+    return NextResponse.json({ error: 'Ação inválida para o status atual' }, { status: 400 })
 
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
-

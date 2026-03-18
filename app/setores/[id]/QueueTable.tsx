@@ -180,6 +180,7 @@ export default function QueueTable({
   const [filterResponsavel, setFilterResponsavel] = useState('')
   const [filterProdResp, setFilterProdResp]       = useState('')
   const [filterDevolvido, setFilterDevolvido]     = useState(false)
+  const [filterEstoqueInsuf, setFilterEstoqueInsuf] = useState(false)
   const [filterBowColor, setFilterBowColor]       = useState('')
   const [filterBowType, setFilterBowType]         = useState('')
   const [filterLoja, setFilterLoja]               = useState('')
@@ -350,6 +351,7 @@ export default function QueueTable({
       if (filterResponsavel && item.responsible?.id !== filterResponsavel) return false
       if (filterProdResp && item.productionResponsibleId !== filterProdResp) return false
       if (filterDevolvido && !item.sectorNotes?.startsWith('[DEVOLVIDO]')) return false
+      if (filterEstoqueInsuf && !item.sectorNotes?.includes('[ESTOQUE_INSUFICIENTE]')) return false
       if (filterBowColor) {
         const color = item.order.items[0]?.bowColor?.toLowerCase().trim() ?? ''
         if (!color.includes(filterBowColor.toLowerCase().trim())) return false
@@ -379,9 +381,9 @@ export default function QueueTable({
       }
       return true
     })
-  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterDevolvido, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate, filterBowColor])
+  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterDevolvido, filterEstoqueInsuf, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate, filterBowColor])
 
-  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterDevolvido || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate || filterBowColor)
+  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterDevolvido || filterEstoqueInsuf || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate || filterBowColor)
   const inputClass = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
 
   // Derivados de filtered — definidos aqui pois dependem do useMemo acima
@@ -571,9 +573,21 @@ export default function QueueTable({
             Somente devolvidos
           </label>
         </div>
+        <div className="flex items-center gap-2 mt-2">
+          <input
+            type="checkbox"
+            id="filterEstoqueInsuf"
+            checked={filterEstoqueInsuf}
+            onChange={e => setFilterEstoqueInsuf(e.target.checked)}
+            className="accent-orange-500 w-4 h-4 cursor-pointer"
+          />
+          <label htmlFor="filterEstoqueInsuf" className="text-sm text-orange-600 font-medium cursor-pointer">
+            Estoque insuficiente
+          </label>
+        </div>
         {hasFilter && (
           <button
-            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterDevolvido(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate(''); setFilterBowColor('') }}
+            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterDevolvido(false); setFilterEstoqueInsuf(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate(''); setFilterBowColor('') }}
             className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
           >
             Limpar filtros
@@ -756,6 +770,11 @@ export default function QueueTable({
                         Devolvido
                       </span>
                     )}
+                    {item.sectorNotes?.includes('[ESTOQUE_INSUFICIENTE]') && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-300">
+                        Estoque insuficiente de lacos!
+                      </span>
+                    )}
                   </div>
 
                   {/* ID Shopee + ID User */}
@@ -781,7 +800,7 @@ export default function QueueTable({
 
                   {/* Nome e idade */}
                   {oi?.childName && (
-                    <p className="text-xs text-gray-500 mt-0.5">{oi.childName}</p>
+                    <p className="text-sm font-bold text-blue-600 mt-0.5">{oi.childName}</p>
                   )}
 
                   {/* Responsável pela produção — só setor Arte */}
