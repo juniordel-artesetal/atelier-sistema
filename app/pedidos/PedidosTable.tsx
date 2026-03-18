@@ -25,6 +25,7 @@ interface Order {
   theme: string | null
   artType: string | null
   artStatus: string | null
+  productionType: string | null
   dueDate: string | null
   createdAt: string
   store: { name: string } | null
@@ -537,4 +538,6 @@ export default function PedidosTable({ orders, initialStatus = '' }: { orders: O
     </div>
   )
 }
+
+
 
