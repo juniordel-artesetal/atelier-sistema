@@ -41,7 +41,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(_req as any)
+    const session = await getServerSession(authOptions)
     if (!session || session.user.role === 'OPERADOR') {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -54,3 +54,4 @@ export async function DELETE(
     return NextResponse.json({ error: 'Erro ao excluir tema' }, { status: 500 })
   }
 }
+
