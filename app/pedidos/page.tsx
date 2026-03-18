@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 import PedidosTable from './PedidosTable'
 
 interface Props {
@@ -7,9 +10,13 @@ interface Props {
 }
 
 export default async function PedidosPage({ searchParams }: Props) {
+  const session = await getServerSession(authOptions)
+  if (!session) redirect('/login')
+  if (session.user.role === 'OPERADOR') redirect('/meus-pedidos')
+
   const { status } = await searchParams
 
-  const orders = await prisma.order.findMany({
+  const rawOrders = await prisma.order.findMany({
     where: { workspaceId: 'ws_atelier', deletedAt: null },
     include: {
       store: true,
@@ -23,6 +30,12 @@ export default async function PedidosPage({ searchParams }: Props) {
     },
     orderBy: { createdAt: 'desc' }
   })
+
+  const orders = rawOrders.map(o => ({
+    ...o,
+    dueDate:   o.dueDate   ? o.dueDate.toISOString()   : null,
+    createdAt: o.createdAt.toISOString(),
+  }))
 
   return (
     <div>
