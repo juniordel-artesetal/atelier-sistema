@@ -32,7 +32,6 @@ export default async function SetorPage({ params }: { params: Promise<{ id: stri
     select: { id: true, name: true }
   })
 
-  // Busca responsáveis pela produção (só relevante para Arte, mas busca sempre)
   const responsaveisProducao = await prisma.productionResponsible.findMany({
     where: { workspaceId: 'ws_atelier', active: true },
     orderBy: { name: 'asc' },
@@ -47,7 +46,7 @@ export default async function SetorPage({ params }: { params: Promise<{ id: stri
     workItemWhere.responsibleId = session.user.id
   }
 
-  const workItems = step
+  const rawWorkItems = step
     ? await prisma.workItem.findMany({
         where: workItemWhere,
         include: {
@@ -59,6 +58,19 @@ export default async function SetorPage({ params }: { params: Promise<{ id: stri
       })
     : []
 
+  // Converter datas para string
+  const workItems = rawWorkItems.map(wi => ({
+    ...wi,
+    createdAt: wi.createdAt.toISOString(),
+    doneAt:    wi.doneAt    ? wi.doneAt.toISOString()    : null,
+    dueDate:   wi.dueDate   ? wi.dueDate.toISOString()   : null,
+    order: {
+      ...wi.order,
+      dueDate:   wi.order.dueDate   ? wi.order.dueDate.toISOString()   : null,
+      createdAt: wi.order.createdAt.toISOString(),
+    }
+  }))
+
   return (
     <div>
       <div className="mb-6">
@@ -66,7 +78,7 @@ export default async function SetorPage({ params }: { params: Promise<{ id: stri
         <p className="text-gray-500 text-sm mt-1">{workItems.length} itens na fila</p>
       </div>
       <QueueTable
-        workItems={workItems}
+        workItems={workItems as any}
         operadores={operadores}
         departmentId={id}
         responsaveisProducao={responsaveisProducao}
