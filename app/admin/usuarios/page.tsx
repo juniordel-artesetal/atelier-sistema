@@ -3,11 +3,18 @@ import Link from 'next/link'
 import UsuariosTable from './UsuariosTable'
 
 export default async function UsuariosPage() {
-  const users = await prisma.user.findMany({
-    where: { workspaceId: 'ws_atelier' }, // sem filtro deletedAt
+  const rawUsers = await prisma.user.findMany({
+    where: { workspaceId: 'ws_atelier' },
     include: { departments: { include: { department: true } } },
     orderBy: { name: 'asc' }
   })
+
+  const users = rawUsers.map(u => ({
+    ...u,
+    deletedAt: u.deletedAt ? u.deletedAt.toISOString() : null,
+    createdAt: u.createdAt.toISOString(),
+    updatedAt: u.updatedAt.toISOString(),
+  }))
 
   return (
     <div>
@@ -21,7 +28,7 @@ export default async function UsuariosPage() {
           + Nova usuária
         </Link>
       </div>
-      <UsuariosTable users={users} />
+      <UsuariosTable users={users as any} />
     </div>
   )
 }
