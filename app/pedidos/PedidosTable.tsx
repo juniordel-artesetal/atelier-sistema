@@ -537,3 +537,4 @@ export default function PedidosTable({ orders, initialStatus = '' }: { orders: O
     </div>
   )
 }
+
