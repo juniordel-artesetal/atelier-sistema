@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
@@ -24,7 +23,7 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    if (!session) return NextResponse.json({ error: 'N├úo autorizado' }, { status: 401 })
 
     const { id } = await params
     const body = await req.json().catch(() => ({}))
@@ -35,19 +34,19 @@ export async function POST(
       include: { step: true, order: true }
     })
 
-    if (!workItem) return NextResponse.json({ error: 'Item não encontrado' }, { status: 404 })
+    if (!workItem) return NextResponse.json({ error: 'Item n├úo encontrado' }, { status: 404 })
 
     const userName = session.user.name
     const userId   = session.user.id
 
-    // ── DEVOLUÇÃO ──────────────────────────────────────────────────
+    // ÔöÇÔöÇ DEVOLU├ç├âO ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     if (action === 'revert') {
       if (!targetStepId) {
-        return NextResponse.json({ error: 'Setor de destino obrigatório' }, { status: 400 })
+        return NextResponse.json({ error: 'Setor de destino obrigat├│rio' }, { status: 400 })
       }
 
       const targetStep = await prisma.workflowStep.findUnique({ where: { id: targetStepId } })
-      if (!targetStep) return NextResponse.json({ error: 'Setor não encontrado' }, { status: 404 })
+      if (!targetStep) return NextResponse.json({ error: 'Setor n├úo encontrado' }, { status: 404 })
 
       await prisma.$transaction([
         prisma.workItem.update({ where: { id }, data: { status: 'CANCELLED' } }),
@@ -69,18 +68,18 @@ export async function POST(
         })
       ])
 
-      // Histórico de devolução
+      // Hist├│rico de devolu├º├úo
       await addHistory(
         workItem.orderId, userId, userName,
         'setor',
         `${workItem.step.name} (devolvido)`,
-        `${targetStep.name}${motivo ? ` — motivo: ${motivo}` : ''}`
+        `${targetStep.name}${motivo ? ` ÔÇö motivo: ${motivo}` : ''}`
       )
 
       return NextResponse.json({ ok: true, action: 'reverted' })
     }
 
-    // ── INICIAR ────────────────────────────────────────────────────
+    // ÔöÇÔöÇ INICIAR ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     if (workItem.status === 'TODO') {
       await prisma.workItem.update({
         where: { id },
@@ -91,18 +90,18 @@ export async function POST(
         data: { status: 'IN_PROGRESS' }
       })
 
-      // Histórico de início
+      // Hist├│rico de in├¡cio
       await addHistory(
         workItem.orderId, userId, userName,
         'setor',
-        `${workItem.step.name} — Aguardando`,
-        `${workItem.step.name} — Em andamento`
+        `${workItem.step.name} ÔÇö Aguardando`,
+        `${workItem.step.name} ÔÇö Em andamento`
       )
 
       return NextResponse.json({ ok: true, status: 'DOING' })
     }
 
-    // ── CONCLUIR ───────────────────────────────────────────────────
+    // ÔöÇÔöÇ CONCLUIR ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     if (workItem.status === 'DOING') {
       const currentStep = workItem.step
       let nextStep = null
@@ -112,7 +111,7 @@ export async function POST(
 
         if (!productionType) {
           return NextResponse.json({
-            error: 'Defina o Tipo de Produção no pedido antes de concluir a Impressão.'
+            error: 'Defina o Tipo de Produ├º├úo no pedido antes de concluir a Impress├úo.'
           }, { status: 400 })
         }
 
@@ -157,12 +156,12 @@ export async function POST(
             stepId:                  nextStep.id,
             departmentId:            nextStep.departmentId,
             status:                  'TODO',
-            // Propaga o responsável pela produção definido no setor Arte
+            // Propaga o respons├ível pela produ├º├úo definido no setor Arte
             productionResponsibleId: workItem.productionResponsibleId ?? null,
           }
         })
 
-        // Histórico de avanço de setor
+        // Hist├│rico de avan├ºo de setor
         await addHistory(
           workItem.orderId, userId, userName,
           'setor',
@@ -175,7 +174,7 @@ export async function POST(
           data: { status: 'POSTED' }
         })
 
-        // Histórico de postagem
+        // Hist├│rico de postagem
         await addHistory(
           workItem.orderId, userId, userName,
           'setor',
@@ -187,32 +186,11 @@ export async function POST(
       return NextResponse.json({ ok: true, status: 'DONE' })
     }
 
-    return NextResponse.json({ error: 'Ação inválida para o status atual' }, { status: 400 })
+    return NextResponse.json({ error: 'A├º├úo inv├ílida para o status atual' }, { status: 400 })
 
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
-=======
-import { NextResponse } from "next/server";
-import { transitionWorkItem } from "@/lib/workflow";
 
-export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const { id } = await ctx.params;
-
-  const body = (await req.json()) as { workspaceId: string; toStatus: "todo" | "doing" | "done" };
-
-  if (!body?.workspaceId || !body?.toStatus) {
-    return NextResponse.json({ ok: false, error: "workspaceId e toStatus são obrigatórios." }, { status: 400 });
-  }
-
-  const updated = await transitionWorkItem({
-    workItemId: id,
-    workspaceId: body.workspaceId,
-    toStatus: body.toStatus,
-  });
-
-  return NextResponse.json({ ok: true, workItem: updated });
-}
->>>>>>> 207ad57b321dc370732151e2e34243648c175230
