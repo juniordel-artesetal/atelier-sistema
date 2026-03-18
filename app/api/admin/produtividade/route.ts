@@ -90,8 +90,8 @@ export async function GET(req: NextRequest) {
           totalTarefas: 0,
           totalItens:   0,
           totalPedidos: 0,
-          totalBowQty:  0,
-          items:        [],
+          totalBowQty:  0 as number,
+          items:        [] as any[],
         }
       }
 
