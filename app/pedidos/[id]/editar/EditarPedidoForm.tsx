@@ -133,6 +133,23 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
     }
   }
 
+  async function handleRevertPost() {
+    if (!confirm('Reverter postagem? O pedido voltará para a Expedição e os laços serão devolvidos ao estoque.')) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/orders/${order.id}/revert-post`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro ao reverter')
+      router.push('/pedidos')
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
 
   return (

@@ -51,6 +51,7 @@ const ART_STATUS_LABEL: Record<string, string> = {
   APROVADO: 'Aprovado', ARTE_IGUAL: 'Arte Igual',
   ARTE_CLIENTE: 'Arte Cliente', PRODUZIDO_SEM_APROVACAO: 'Prod. s/ Aprov.',
   EM_APROVACAO: 'Em Aprovacao', REPLICAR_ARTE: 'Replicar Arte',
+  ALTERAR: 'Alterar',
 }
 const ART_STATUS_COLOR: Record<string, string> = {
   APROVADO:               'bg-green-100 text-green-700',
@@ -59,6 +60,7 @@ const ART_STATUS_COLOR: Record<string, string> = {
   PRODUZIDO_SEM_APROVACAO:'bg-red-100 text-red-600',
   EM_APROVACAO:           'bg-orange-100 text-orange-700',
   REPLICAR_ARTE:          'bg-purple-100 text-purple-700',
+  ALTERAR:                'bg-rose-100 text-rose-700',
 }
 
 const BOW_LABEL: Record<string, string> = {
@@ -313,6 +315,7 @@ export default function PedidosTable({ orders, initialStatus = '', operadores = 
             <option value="PRODUZIDO_SEM_APROVACAO">Prod. s/ Aprov.</option>
             <option value="EM_APROVACAO">Em Aprovacao</option>
             <option value="REPLICAR_ARTE">Replicar Arte</option>
+            <option value="ALTERAR">Alterar</option>
           </select>
         </div>
         <div>

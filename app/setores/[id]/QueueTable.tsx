@@ -30,6 +30,10 @@ interface WorkItem {
   dueDate: string | null
   productionResponsibleId: string | null
   productionResponsible: ProductionResponsible | null
+  artResponsibleId: string | null
+  artResponsible: ProductionResponsible | null
+  artResponsibleId: string | null
+  artResponsible: ProductionResponsible | null
   responsible: { id: string; name: string } | null
   order: {
     id: string
@@ -60,6 +64,7 @@ const ART_STATUS_LABEL: Record<string, string> = {
   APROVADO: 'Aprovado', ARTE_IGUAL: 'Arte Igual',
   ARTE_CLIENTE: 'Arte Cliente', PRODUZIDO_SEM_APROVACAO: 'Prod. s/ Aprov.',
   EM_APROVACAO: 'Em Aprovacao', REPLICAR_ARTE: 'Replicar Arte',
+  ALTERAR: 'Alterar',
 }
 const ART_STATUS_COLOR: Record<string, string> = {
   APROVADO:               'bg-green-100 text-green-700',
@@ -68,6 +73,7 @@ const ART_STATUS_COLOR: Record<string, string> = {
   PRODUZIDO_SEM_APROVACAO:'bg-red-100 text-red-600',
   EM_APROVACAO:           'bg-orange-100 text-orange-700',
   REPLICAR_ARTE:          'bg-purple-100 text-purple-700',
+  ALTERAR:                'bg-rose-100 text-rose-700',
 }
 
 const PROD_LABEL: Record<string, string> = {
@@ -162,6 +168,8 @@ export default function QueueTable({
   // Estado local para responsável de produção com botão salvar
   const [localProdResp, setLocalProdResp]     = useState<Record<string, string | null>>({})
   const [savingProdRespId, setSavingProdRespId] = useState<string | null>(null)
+  const [localArtResp, setLocalArtResp]         = useState<Record<string, string | null>>({})
+  const [savingArtRespId, setSavingArtRespId]   = useState<string | null>(null)
 
   async function handleSaveProdResp(itemId: string) {
     const newVal = localProdResp[itemId] !== undefined ? localProdResp[itemId] : null
@@ -177,10 +185,26 @@ export default function QueueTable({
       setSavingProdRespId(null)
     }
   }
+
+  async function handleSaveArtResp(itemId: string) {
+    const newVal = localArtResp[itemId] !== undefined ? localArtResp[itemId] : null
+    setSavingArtRespId(itemId)
+    try {
+      await fetch('/api/work-items/bulk-prod-resp', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workItemIds: [itemId], artResponsibleId: newVal }),
+      })
+      router.refresh()
+    } finally {
+      setSavingArtRespId(null)
+    }
+  }
   const [filterResponsavel, setFilterResponsavel] = useState('')
   const [filterProdResp, setFilterProdResp]       = useState('')
   const [filterDevolvido, setFilterDevolvido]     = useState(false)
   const [filterEstoqueInsuf, setFilterEstoqueInsuf] = useState(false)
+  const [filterSemData, setFilterSemData]           = useState(false)
   const [filterBowColor, setFilterBowColor]       = useState('')
   const [filterBowType, setFilterBowType]         = useState('')
   const [filterLoja, setFilterLoja]               = useState('')
@@ -352,6 +376,7 @@ export default function QueueTable({
       if (filterProdResp && item.productionResponsibleId !== filterProdResp) return false
       if (filterDevolvido && !item.sectorNotes?.startsWith('[DEVOLVIDO]')) return false
       if (filterEstoqueInsuf && !item.sectorNotes?.includes('[ESTOQUE_INSUFICIENTE]')) return false
+      if (filterSemData && item.dueDate) return false
       if (filterBowColor) {
         const color = item.order.items[0]?.bowColor?.toLowerCase().trim() ?? ''
         if (!color.includes(filterBowColor.toLowerCase().trim())) return false
@@ -381,9 +406,9 @@ export default function QueueTable({
       }
       return true
     })
-  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterDevolvido, filterEstoqueInsuf, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate, filterBowColor])
+  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterDevolvido, filterEstoqueInsuf, filterSemData, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate, filterBowColor])
 
-  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterDevolvido || filterEstoqueInsuf || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate || filterBowColor)
+  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterDevolvido || filterEstoqueInsuf || filterSemData || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate || filterBowColor)
   const inputClass = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
 
   // Derivados de filtered — definidos aqui pois dependem do useMemo acima
@@ -555,11 +580,24 @@ export default function QueueTable({
             <option value="PRODUZIDO_SEM_APROVACAO">Prod. s/ Aprov.</option>
             <option value="EM_APROVACAO">Em Aprovacao</option>
             <option value="REPLICAR_ARTE">Replicar Arte</option>
+            <option value="ALTERAR">Alterar</option>
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Prev. entrega tarefa</label>
-          <input type="date" value={filterDueDate} onChange={e => setFilterDueDate(e.target.value)} className={inputClass} />
+          <input type="date" value={filterDueDate} onChange={e => { setFilterDueDate(e.target.value); setFilterSemData(false) }} className={inputClass} />
+        </div>
+        <div className="flex items-center gap-2 mt-4">
+          <input
+            type="checkbox"
+            id="filterSemData"
+            checked={filterSemData}
+            onChange={e => { setFilterSemData(e.target.checked); if (e.target.checked) setFilterDueDate('') }}
+            className="accent-purple-500 w-4 h-4 cursor-pointer"
+          />
+          <label htmlFor="filterSemData" className="text-sm text-purple-600 font-medium cursor-pointer">
+            Sem data definida
+          </label>
         </div>
         <div className="flex items-center gap-2 mt-4">
           <input
@@ -587,7 +625,7 @@ export default function QueueTable({
         </div>
         {hasFilter && (
           <button
-            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterDevolvido(false); setFilterEstoqueInsuf(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate(''); setFilterBowColor('') }}
+            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterDevolvido(false); setFilterEstoqueInsuf(false); setFilterSemData(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate(''); setFilterBowColor('') }}
             className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
           >
             Limpar filtros
@@ -924,6 +962,7 @@ export default function QueueTable({
                             <option value="PRODUZIDO_SEM_APROVACAO">Prod. s/ Aprovacao</option>
                             <option value="EM_APROVACAO">Em Aprovacao</option>
                             <option value="REPLICAR_ARTE">Replicar Arte</option>
+                            <option value="ALTERAR">Alterar</option>
                           </select>
                           <button
                             onClick={() => handleSaveArtStatus(item.order.id)}
@@ -1002,6 +1041,37 @@ export default function QueueTable({
                       <span className="font-medium text-indigo-600">{item.productionResponsible.name}</span>
                     </p>
                   ) : null}
+
+                  {/* Responsavel Arte — editavel somente no setor Arte por ADMIN/DELEGADOR */}
+                  {isArteSector && canManage && responsaveisProducao.length > 0 && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span className="text-xs text-gray-400">Resp. arte:</span>
+                      <select
+                        value={localArtResp[item.id] !== undefined ? (localArtResp[item.id] ?? '') : (item.artResponsibleId ?? '')}
+                        onChange={e => setLocalArtResp(prev => ({ ...prev, [item.id]: e.target.value || null }))}
+                        className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      >
+                        <option value="">Sem responsavel</option>
+                        {responsaveisProducao.filter(r => (r as any).active !== false).map(r => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => handleSaveArtResp(item.id)}
+                        disabled={savingArtRespId === item.id}
+                        className="text-xs bg-indigo-600 text-white px-2 py-1 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        {savingArtRespId === item.id ? '...' : 'Salvar'}
+                      </button>
+                    </div>
+                  )}
+                  {/* Exibe resp arte em leitura nos demais setores */}
+                  {!isArteSector && item.artResponsible && (
+                    <p className="text-xs mt-1.5">
+                      <span className="text-gray-400">Resp. arte: </span>
+                      <span className="font-medium text-indigo-600">{item.artResponsible.name}</span>
+                    </p>
+                  )}
 
                   {/* Atribuição */}
                   <div className="mt-2 flex flex-wrap items-center gap-2">

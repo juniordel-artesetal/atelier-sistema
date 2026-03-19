@@ -147,7 +147,8 @@ model WorkItem {
   departmentId String
   productionResponsibleId String?
   productionResponsible   ProductionResponsible? @relation(fields: [productionResponsibleId], references: [id])
-
+  artResponsibleId String?
+  artResponsible   ProductionResponsible? @relation("ArtResponsible", fields: [artResponsibleId], references: [id])
   status    WorkItemStatus @default(TODO)
   dueDate   DateTime?
   startedAt DateTime?
@@ -239,6 +240,7 @@ model ProductionResponsible {
   id          String     @id @default(cuid())
   workspaceId String
   name        String
+  artWorkItems WorkItem[] @relation("ArtResponsible")
   active      Boolean    @default(true)
   createdAt   DateTime   @default(now())
   workItems   WorkItem[]

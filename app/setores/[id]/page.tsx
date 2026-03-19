@@ -53,6 +53,7 @@ export default async function SetorPage({ params }: { params: Promise<{ id: stri
           order: { include: { store: true, items: true } },
           responsible: { select: { id: true, name: true } },
           productionResponsible: { select: { id: true, name: true } },
+          artResponsible: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'asc' }
       })
