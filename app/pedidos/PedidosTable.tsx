@@ -142,6 +142,7 @@ export default function PedidosTable({ orders, initialStatus = '', operadores = 
   const [filterLoja, setFilterLoja]     = useState('')
   const [filterSetor, setFilterSetor]         = useState('')
   const [filterResponsavel, setFilterResp]  = useState('')
+  const [filterSemProdType, setFilterSemProdType] = useState(false)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -173,6 +174,7 @@ export default function PedidosTable({ orders, initialStatus = '', operadores = 
         if (entrada !== filterEntrada) return false
       }
       if (filterBowType && order.items[0]?.bowType !== filterBowType) return false
+      if (filterSemProdType && order.productionType) return false
       if (filterProdType && order.productionType !== filterProdType) return false
       if (filterArtStatus && order.artStatus !== filterArtStatus) return false
       if (filterLoja && order.store?.name !== filterLoja) return false
@@ -186,7 +188,7 @@ export default function PedidosTable({ orders, initialStatus = '', operadores = 
       }
       return true
     })
-  }, [orders, search, filterStatus, filterDataEnvio, filterEntrada, filterBowType, filterProdType, filterArtStatus, filterLoja, filterSetor, filterResponsavel])
+  }, [orders, search, filterStatus, filterDataEnvio, filterEntrada, filterBowType, filterProdType, filterArtStatus, filterLoja, filterSetor, filterResponsavel, filterSemProdType])
 
   const inputClass = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
 
@@ -298,12 +300,24 @@ export default function PedidosTable({ orders, initialStatus = '', operadores = 
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Tipo Producao</label>
-          <select value={filterProdType} onChange={e => setFilterProd(e.target.value)} className={inputClass}>
+          <select value={filterProdType} onChange={e => { setFilterProd(e.target.value); setFilterSemProdType(false) }} className={inputClass}>
             <option value="">Todos</option>
             <option value="EXTERNA">Externa</option>
             <option value="INTERNA">Interna</option>
             <option value="PRONTA_ENTREGA">Pronta Entrega</option>
           </select>
+        </div>
+        <div className="flex items-center gap-2 mt-4">
+          <input
+            type="checkbox"
+            id="filterSemProdType"
+            checked={filterSemProdType}
+            onChange={e => { setFilterSemProdType(e.target.checked); if (e.target.checked) setFilterProd('') }}
+            className="accent-orange-500 w-4 h-4 cursor-pointer"
+          />
+          <label htmlFor="filterSemProdType" className="text-sm text-orange-600 font-medium cursor-pointer whitespace-nowrap">
+            Sem tipo de producao
+          </label>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Status Arte</label>
@@ -348,7 +362,7 @@ export default function PedidosTable({ orders, initialStatus = '', operadores = 
         )}
         {(search || filterStatus || filterDataEnvio || filterEntrada || filterBowType || filterProdType || filterArtStatus || filterLoja || filterSetor || filterResponsavel) && (
           <button
-            onClick={() => { setSearch(''); setStatus(''); setEnvio(''); setEntrada(''); setFilterBow(''); setFilterProd(''); setFilterArt(''); setFilterLoja(''); setFilterSetor(''); setFilterResp('') }}
+            onClick={() => { setSearch(''); setStatus(''); setEnvio(''); setEntrada(''); setFilterBow(''); setFilterProd(''); setFilterArt(''); setFilterLoja(''); setFilterSetor(''); setFilterResp(''); setFilterSemProdType(false) }}
             className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
           >
             Limpar filtros

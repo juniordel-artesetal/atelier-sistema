@@ -200,6 +200,7 @@ export default function QueueTable({
   }
   const [filterResponsavel, setFilterResponsavel] = useState('')
   const [filterProdResp, setFilterProdResp]       = useState('')
+  const [filterArtResp, setFilterArtResp]         = useState('')
   const [filterDevolvido, setFilterDevolvido]     = useState(false)
   const [filterEstoqueInsuf, setFilterEstoqueInsuf] = useState(false)
   const [filterSemData, setFilterSemData]           = useState(false)
@@ -220,6 +221,26 @@ export default function QueueTable({
   const [savingBulkDue, setSavingBulkDue]   = useState(false)
   const [bulkProdResp, setBulkProdResp]     = useState('')
   const [savingProdResp, setSavingProdResp] = useState(false)
+  const [bulkArtResp, setBulkArtResp]       = useState('')
+  const [savingArtResp, setSavingArtResp]   = useState(false)
+
+  async function handleBulkArtResp() {
+    const ids = Array.from(selectedIds)
+    if (!ids.length) return
+    setSavingArtResp(true)
+    try {
+      await fetch('/api/work-items/bulk-prod-resp', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workItemIds: ids, artResponsibleId: bulkArtResp || null }),
+      })
+      setSelectedIds(new Set())
+      setBulkArtResp('')
+      router.refresh()
+    } finally {
+      setSavingArtResp(false)
+    }
+  }
 
   async function handleBulkProdResp() {
     const ids = Array.from(selectedIds)
@@ -372,6 +393,7 @@ export default function QueueTable({
       if (filterStatus && item.status !== filterStatus) return false
       if (filterResponsavel && item.responsible?.id !== filterResponsavel) return false
       if (filterProdResp && item.productionResponsibleId !== filterProdResp) return false
+      if (filterArtResp && item.artResponsibleId !== filterArtResp) return false
       if (filterDevolvido && !item.sectorNotes?.startsWith('[DEVOLVIDO]')) return false
       if (filterEstoqueInsuf && !item.sectorNotes?.includes('[ESTOQUE_INSUFICIENTE]')) return false
       if (filterSemData && item.dueDate) return false
@@ -404,9 +426,9 @@ export default function QueueTable({
       }
       return true
     })
-  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterDevolvido, filterEstoqueInsuf, filterSemData, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate, filterBowColor])
+  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterArtResp, filterDevolvido, filterEstoqueInsuf, filterSemData, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate, filterBowColor])
 
-  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterDevolvido || filterEstoqueInsuf || filterSemData || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate || filterBowColor)
+  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterArtResp || filterDevolvido || filterEstoqueInsuf || filterSemData || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate || filterBowColor)
   const inputClass = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
 
   // Derivados de filtered — definidos aqui pois dependem do useMemo acima
@@ -533,6 +555,17 @@ export default function QueueTable({
             </select>
           </div>
         )}
+        {isArteSector && responsaveisProducao.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Resp. arte</label>
+            <select value={filterArtResp} onChange={e => setFilterArtResp(e.target.value)} className={inputClass}>
+              <option value="">Todos</option>
+              {responsaveisProducao.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Data de envio</label>
           <input type="date" value={filterEnvio} onChange={e => setFilterEnvio(e.target.value)} className={inputClass} />
@@ -623,7 +656,7 @@ export default function QueueTable({
         </div>
         {hasFilter && (
           <button
-            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterDevolvido(false); setFilterEstoqueInsuf(false); setFilterSemData(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate(''); setFilterBowColor('') }}
+            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterArtResp(''); setFilterDevolvido(false); setFilterEstoqueInsuf(false); setFilterSemData(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate(''); setFilterBowColor('') }}
             className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
           >
             Limpar filtros
@@ -735,6 +768,29 @@ export default function QueueTable({
                 className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
               >
                 {savingProdResp ? '...' : 'Atribuir'}
+              </button>
+            </div>
+          )}
+          {/* Responsável arte em lote — só setor Arte, só ADMIN/DELEGADOR */}
+          {someSelected && canManage && isArteSector && responsaveisProducao && responsaveisProducao.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500 whitespace-nowrap">Resp. arte:</label>
+              <select
+                value={bulkArtResp}
+                onChange={e => setBulkArtResp(e.target.value)}
+                className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              >
+                <option value="">Sem responsável</option>
+                {responsaveisProducao.filter(r => (r as any).active !== false).map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleBulkArtResp}
+                disabled={savingArtResp}
+                className="bg-pink-600 hover:bg-pink-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+              >
+                {savingArtResp ? '...' : 'Atribuir'}
               </button>
             </div>
           )}
@@ -1266,6 +1322,29 @@ export default function QueueTable({
                 className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
               >
                 {savingProdResp ? '...' : 'Atribuir'}
+              </button>
+            </div>
+          )}
+          {/* Responsável arte em lote — só setor Arte, só ADMIN/DELEGADOR */}
+          {someSelected && canManage && isArteSector && responsaveisProducao && responsaveisProducao.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500 whitespace-nowrap">Resp. arte:</label>
+              <select
+                value={bulkArtResp}
+                onChange={e => setBulkArtResp(e.target.value)}
+                className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              >
+                <option value="">Sem responsável</option>
+                {responsaveisProducao.filter(r => (r as any).active !== false).map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleBulkArtResp}
+                disabled={savingArtResp}
+                className="bg-pink-600 hover:bg-pink-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+              >
+                {savingArtResp ? '...' : 'Atribuir'}
               </button>
             </div>
           )}

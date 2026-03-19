@@ -364,6 +364,12 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
           className="border border-red-200 text-red-500 font-medium px-4 py-3 rounded-lg hover:bg-red-50 transition-colors text-sm">
           Excluir
         </button>
+        {session?.user?.role === 'ADMIN' && order.status === 'POSTED' && (
+          <button type="button" onClick={handleRevertPost} disabled={loading}
+            className="border border-orange-300 text-orange-700 bg-orange-50 font-medium px-4 py-3 rounded-lg hover:bg-orange-100 transition-colors text-sm disabled:opacity-50">
+            Reverter postagem
+          </button>
+        )}
         <button type="button" onClick={() => router.back()}
           className="flex-1 border border-gray-200 text-gray-600 font-medium py-3 rounded-lg hover:bg-gray-50">
           Cancelar
