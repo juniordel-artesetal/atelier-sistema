@@ -247,29 +247,32 @@ export default function EstoqueLacosPage() {
                   required
                 >
                   <option value="">Selecione a cor...</option>
-                  <optgroup label="Rosa / Pink">
-                    <option value="ROSA">Rosa</option>
-                    <option value="ROSA BEBE">Rosa Bebe</option>
-                    <option value="PINK">Pink</option>
-                    <option value="ROSE">Rose</option>
+                  <optgroup label="Amarelo">
+                    <option value="AMARELO BEBE">Amarelo Bebe</option>
+                    <option value="AMARELO OURO">Amarelo Ouro</option>
                   </optgroup>
                   <optgroup label="Azul">
-                    <option value="AZUL">Azul</option>
                     <option value="AZUL BEBE">Azul Bebe</option>
                     <option value="AZUL ROYAL">Azul Royal</option>
                   </optgroup>
-                  <optgroup label="Outras cores">
-                    <option value="VERMELHO">Vermelho</option>
+                  <optgroup label="Rosa / Pink">
+                    <option value="PINK">Pink</option>
+                    <option value="ROSA BEBE">Rosa Bebe</option>
+                    <option value="ROSE">Rose</option>
+                  </optgroup>
+                  <optgroup label="Verde">
                     <option value="VERDE">Verde</option>
+                    <option value="VERDE AGUA">Verde Agua</option>
                     <option value="VERDE MUSGO">Verde Musgo</option>
-                    <option value="AMARELO">Amarelo</option>
-                    <option value="AMARELO OURO">Amarelo Ouro</option>
-                    <option value="LARANJA">Laranja</option>
-                    <option value="ROXO">Roxo</option>
-                    <option value="LILAS">Lilas</option>
-                    <option value="BRANCO">Branco</option>
-                    <option value="PRETO">Preto</option>
+                  </optgroup>
+                  <optgroup label="Outras cores">
                     <option value="DOURADO">Dourado</option>
+                    <option value="LARANJA">Laranja</option>
+                    <option value="LILAS">Lilas</option>
+                    <option value="MARROM">Marrom</option>
+                    <option value="PRETO">Preto</option>
+                    <option value="ROXO">Roxo</option>
+                    <option value="VERMELHO">Vermelho</option>
                   </optgroup>
                 </select>
               </div>
