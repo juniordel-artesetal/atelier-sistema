@@ -32,8 +32,6 @@ interface WorkItem {
   productionResponsible: ProductionResponsible | null
   artResponsibleId: string | null
   artResponsible: ProductionResponsible | null
-  artResponsibleId: string | null
-  artResponsible: ProductionResponsible | null
   responsible: { id: string; name: string } | null
   order: {
     id: string
