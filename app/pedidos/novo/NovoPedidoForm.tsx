@@ -3,13 +3,31 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+const BOW_COLORS = [
+  'AMARELO BEBE', 'AMARELO OURO', 'AZUL BEBE', 'AZUL ROYAL', 'DOURADO',
+  'LARANJA', 'LILAS', 'MARROM', 'PINK', 'PRETO', 'ROSA BEBE', 'ROSE',
+  'ROXO', 'VERDE', 'VERDE AGUA', 'VERDE MUSGO', 'VERMELHO',
+]
+
+interface BowItem {
+  bowColor: string
+  bowType: string
+  bowQty: string
+  appliqueType: string
+  appliqueQty: string
+}
+
+const emptyBow = (): BowItem => ({
+  bowColor: '', bowType: 'NONE', bowQty: '', appliqueType: 'NONE', appliqueQty: '',
+})
+
 export default function NovoPedidoForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
+  const [bows, setBows]       = useState<BowItem[]>([emptyBow()])
 
   const [form, setForm] = useState({
-    // ── Dados do pedido ───────────────────────────────────────────────────────
     externalId:     '',
     buyerUsername:  '',
     storeId:        'store_fofuras',
@@ -17,26 +35,30 @@ export default function NovoPedidoForm() {
     dueDate:        '',
     notes:          '',
     productionType: '',
-    // ── Arte ──────────────────────────────────────────────────────────────────
     artType:        '',
     artStatus:      '',
-    // ── Dados do produto ──────────────────────────────────────────────────────
     productName:    '',
     variation:      '',
     quantity:       1,
     totalItems:     '',
     theme:          '',
     childName:      '',
-    // ── Laço e Aplique ────────────────────────────────────────────────────────
-    bowColor:       '',
-    bowType:        'NONE',
-    bowQty:         '',
-    appliqueType:   'NONE',
-    appliqueQty:    '',
   })
 
   function handle(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
+  }
+
+  function handleBow(index: number, field: keyof BowItem, value: string) {
+    setBows(prev => prev.map((b, i) => i === index ? { ...b, [field]: value } : b))
+  }
+
+  function addBow() {
+    setBows(prev => [...prev, emptyBow()])
+  }
+
+  function removeBow(index: number) {
+    setBows(prev => prev.filter((_, i) => i !== index))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -49,14 +71,19 @@ export default function NovoPedidoForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          quantity:    Number(form.quantity)   || 1,
-          totalItems:  form.totalItems  !== '' ? Number(form.totalItems)  : null,
-          bowQty:      form.bowQty      !== '' ? Number(form.bowQty)      : null,
-          appliqueQty: form.appliqueQty !== '' ? Number(form.appliqueQty) : null,
-          artType:     form.artType     || null,
-          artStatus:   form.artStatus   || null,
+          quantity:      Number(form.quantity) || 1,
+          totalItems:    form.totalItems !== '' ? Number(form.totalItems) : null,
+          artType:       form.artType     || null,
+          artStatus:     form.artStatus   || null,
           buyerUsername: form.buyerUsername || null,
-          childName:   form.childName   || null,
+          childName:     form.childName   || null,
+          items: bows.map(b => ({
+            bowColor:    b.bowColor    || null,
+            bowType:     b.bowType     || 'NONE',
+            bowQty:      b.bowQty     !== '' ? Number(b.bowQty)     : null,
+            appliqueType: b.appliqueType || 'NONE',
+            appliqueQty: b.appliqueQty !== '' ? Number(b.appliqueQty) : null,
+          })),
         })
       })
       const data = await res.json()
@@ -172,37 +199,93 @@ export default function NovoPedidoForm() {
 
       {/* ── LAÇO E APLIQUE ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
-        <h2 className="font-semibold text-gray-700 mb-4">Laço e Aplique</h2>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Cor do Laço</label>
-            <input name="bowColor" value={form.bowColor} onChange={handle} className={inputClass} placeholder="Ex: Rosa bebê" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Tipo do Laço</label>
-            <select name="bowType" value={form.bowType} onChange={handle} className={inputClass}>
-              <option value="NONE">Sem laço</option>
-              <option value="SIMPLE">Simples</option>
-              <option value="LUXURY">Luxo</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Qtd de Laços</label>
-            <input name="bowQty" type="number" min={0} value={form.bowQty} onChange={handle} className={`${inputClass} font-bold text-purple-600`} placeholder="Ex: 30" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Tipo de Aplique</label>
-            <select name="appliqueType" value={form.appliqueType} onChange={handle} className={inputClass}>
-              <option value="NONE">Sem aplique</option>
-              <option value="SIMPLE">Simples</option>
-              <option value="THREE_D">3D</option>
-              <option value="THREE_D_LUX">3D Luxo</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Qtd de Apliques</label>
-            <input name="appliqueQty" type="number" min={0} value={form.appliqueQty} onChange={handle} className={`${inputClass} font-bold text-purple-600`} placeholder="Ex: 20" />
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-700">Laço e Aplique</h2>
+          <button
+            type="button"
+            onClick={addBow}
+            className="text-sm text-purple-600 border border-purple-200 px-3 py-1.5 rounded-lg hover:bg-purple-50 font-medium"
+          >
+            + Adicionar cor
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {bows.map((bow, index) => (
+            <div key={index} className="relative border border-gray-100 rounded-xl p-4 bg-gray-50">
+              {bows.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeBow(index)}
+                  className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-lg leading-none font-bold"
+                  title="Remover"
+                >
+                  ×
+                </button>
+              )}
+              {bows.length > 1 && (
+                <p className="text-xs font-semibold text-purple-600 mb-3">Cor {index + 1}</p>
+              )}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Cor do Laço</label>
+                  <select
+                    value={bow.bowColor}
+                    onChange={e => handleBow(index, 'bowColor', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">-- Selecione --</option>
+                    {BOW_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Tipo do Laço</label>
+                  <select
+                    value={bow.bowType}
+                    onChange={e => handleBow(index, 'bowType', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="NONE">Sem laço</option>
+                    <option value="SIMPLE">Simples</option>
+                    <option value="LUXURY">Luxo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Qtd de Laços</label>
+                  <input
+                    type="number" min={0}
+                    value={bow.bowQty}
+                    onChange={e => handleBow(index, 'bowQty', e.target.value)}
+                    className={`${inputClass} font-bold text-purple-600`}
+                    placeholder="Ex: 30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Tipo de Aplique</label>
+                  <select
+                    value={bow.appliqueType}
+                    onChange={e => handleBow(index, 'appliqueType', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="NONE">Sem aplique</option>
+                    <option value="SIMPLE">Simples</option>
+                    <option value="THREE_D">3D</option>
+                    <option value="THREE_D_LUX">3D Luxo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Qtd de Apliques</label>
+                  <input
+                    type="number" min={0}
+                    value={bow.appliqueQty}
+                    onChange={e => handleBow(index, 'appliqueQty', e.target.value)}
+                    className={`${inputClass} font-bold text-purple-600`}
+                    placeholder="Ex: 20"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

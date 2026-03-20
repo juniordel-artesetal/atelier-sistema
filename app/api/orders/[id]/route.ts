@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { createId } from '@paralleldrive/cuid2'
 
 // Labels legíveis para os campos
 const FIELD_LABELS: Record<string, string> = {
@@ -48,11 +47,11 @@ const STORE_LABEL: Record<string, string> = {
 
 function formatValue(field: string, value: any): string {
   if (value === null || value === undefined || value === '') return '—'
-  if (field === 'status')         return STATUS_LABEL[value]  ?? value
-  if (field === 'productionType') return PROD_LABEL[value]    ?? value
-  if (field === 'bowType')        return BOW_LABEL[value]     ?? value
+  if (field === 'status')         return STATUS_LABEL[value]   ?? value
+  if (field === 'productionType') return PROD_LABEL[value]     ?? value
+  if (field === 'bowType')        return BOW_LABEL[value]      ?? value
   if (field === 'appliqueType')   return APPLIQUE_LABEL[value] ?? value
-  if (field === 'storeId')        return STORE_LABEL[value]   ?? value
+  if (field === 'storeId')        return STORE_LABEL[value]    ?? value
   if (field === 'artStatus') {
     const ART_LABEL: Record<string, string> = {
       APROVADO: 'Aprovado', ARTE_IGUAL: 'Arte Igual',
@@ -60,7 +59,7 @@ function formatValue(field: string, value: any): string {
     }
     return ART_LABEL[value] ?? value
   }
-  if (field === 'dueDate')        return new Date(value).toLocaleDateString('pt-BR')
+  if (field === 'dueDate') return new Date(value).toLocaleDateString('pt-BR')
   return String(value)
 }
 
@@ -79,6 +78,7 @@ export async function PUT(
       include: { items: true }
     })
 
+    // ── Atualiza o pedido ─────────────────────────────────────────────────
     await prisma.order.update({
       where: { id },
       data: {
@@ -96,7 +96,57 @@ export async function PUT(
       }
     })
 
-    if (body.itemId) {
+    // ── Atualiza os itens de laço ─────────────────────────────────────────
+    if (body.items && Array.isArray(body.items) && body.items.length > 0) {
+      const existingItems = current?.items ?? []
+      const submittedIds  = new Set(body.items.filter((i: any) => i.id).map((i: any) => i.id))
+
+      for (let idx = 0; idx < body.items.length; idx++) {
+        const b = body.items[idx]
+        const bowData = {
+          productName:  body.productName,
+          variation:    body.variation     || null,
+          quantity:     Number(body.quantity) || 1,
+          totalItems:   idx === 0 && body.totalItems != null ? Number(body.totalItems) : null,
+          theme:        body.theme         || null,
+          childName:    body.childName     || null,
+          bowColor:     b.bowColor         || null,
+          bowType:      b.bowType          || 'NONE',
+          bowQty:       b.bowQty           != null ? Number(b.bowQty)      : null,
+          appliqueType: b.appliqueType     || 'NONE',
+          appliqueQty:  b.appliqueQty      != null ? Number(b.appliqueQty) : null,
+        }
+
+        if (b.id) {
+          // Atualiza item existente
+          await prisma.orderItem.update({ where: { id: b.id }, data: bowData })
+        } else {
+          // Cria novo item
+          await prisma.orderItem.create({ data: { orderId: id, ...bowData } })
+        }
+      }
+
+      // Remove itens que foram deletados pelo usuário
+      // (só remove itens que NÃO são o primeiro item original, para não quebrar WorkItems)
+      const firstItemId = existingItems[0]?.id
+      const toDelete = existingItems.filter(
+        i => !submittedIds.has(i.id) && i.id !== firstItemId
+      )
+      for (const item of toDelete) {
+        await prisma.orderItem.delete({ where: { id: item.id } })
+      }
+
+      // Se o primeiro item foi removido da lista (improvável, mas seguro), preserva ele
+      // apenas zerando os dados de laço
+      if (firstItemId && !submittedIds.has(firstItemId) && body.items.length > 0) {
+        await prisma.orderItem.update({
+          where: { id: firstItemId },
+          data: { bowColor: null, bowType: 'NONE', bowQty: null, appliqueType: 'NONE', appliqueQty: null }
+        })
+      }
+
+    } else if (body.itemId) {
+      // ── Formato antigo (compatibilidade) ──────────────────────────────
       await prisma.orderItem.update({
         where: { id: body.itemId },
         data: {
@@ -115,7 +165,7 @@ export async function PUT(
       })
     }
 
-    // Registrar histórico de mudanças
+    // ── Registrar histórico de mudanças ───────────────────────────────────
     if (session?.user && current) {
       const item = current.items[0]
       const histories: any[] = []
@@ -130,24 +180,37 @@ export async function PUT(
         ['status',         current.status,          body.status],
         ['theme',          current.theme,           body.theme          || null],
         ['productionType', current.productionType,  body.productionType || null],
-        ['artType',        (current as any).artType,        body.artType        || null],
-        ['artStatus',      (current as any).artStatus,      body.artStatus      || null],
+        ['artType',        (current as any).artType,   body.artType     || null],
+        ['artStatus',      (current as any).artStatus, body.artStatus   || null],
       ]
 
+      // Histórico dos campos de produto do item principal
       const itemFields: [string, any, any][] = item ? [
         ['productName',  item.productName,  body.productName],
         ['variation',    item.variation,    body.variation    || null],
         ['quantity',     item.quantity,     Number(body.quantity) || 1],
         ['totalItems',   item.totalItems,   body.totalItems   != null ? Number(body.totalItems)  : null],
         ['childName',    item.childName,    body.childName    || null],
-        ['bowColor',     item.bowColor,     body.bowColor     || null],
-        ['bowType',      item.bowType,      body.bowType      || 'NONE'],
-        ['bowQty',       item.bowQty,       body.bowQty       != null ? Number(body.bowQty)      : null],
-        ['appliqueType', item.appliqueType, body.appliqueType || 'NONE'],
-        ['appliqueQty',  item.appliqueQty,  body.appliqueQty  != null ? Number(body.appliqueQty) : null],
       ] : []
 
-      for (const [field, oldVal, newVal] of [...orderFields, ...itemFields]) {
+      // Histórico de laços: compara primeiro item antigo com primeiro item novo
+      const firstNewBow = body.items?.[0] ?? body
+      const bowFields: [string, any, any][] = item ? [
+        ['bowColor',     item.bowColor,     firstNewBow.bowColor     || null],
+        ['bowType',      item.bowType,      firstNewBow.bowType      || 'NONE'],
+        ['bowQty',       item.bowQty,       firstNewBow.bowQty       != null ? Number(firstNewBow.bowQty)      : null],
+        ['appliqueType', item.appliqueType, firstNewBow.appliqueType || 'NONE'],
+        ['appliqueQty',  item.appliqueQty,  firstNewBow.appliqueQty  != null ? Number(firstNewBow.appliqueQty) : null],
+      ] : []
+
+      // Registra se número de cores de laço mudou
+      const oldItemCount = current.items.length
+      const newItemCount = body.items?.length ?? 1
+      const extraFields: [string, any, any][] = oldItemCount !== newItemCount
+        ? [['bowColor', `${oldItemCount} cor(es)`, `${newItemCount} cor(es)`]]
+        : []
+
+      for (const [field, oldVal, newVal] of [...orderFields, ...itemFields, ...bowFields, ...extraFields]) {
         const oldStr = oldVal == null ? '' : String(oldVal)
         const newStr = newVal == null ? '' : String(newVal)
         if (oldStr !== newStr) {

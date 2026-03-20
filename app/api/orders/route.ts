@@ -33,12 +33,15 @@ export async function POST(req: NextRequest) {
       externalId, buyerUsername, storeId, recipientName, dueDate,
       notes, productionType, artType, artStatus,
       productName, variation, quantity, totalItems, theme, childName,
+      // Suporte ao novo formato: array de itens de laço
+      items: bowItems,
+      // Compatibilidade com formato antigo (campo único)
       bowColor, bowType, bowQty, appliqueType, appliqueQty,
     } = body
 
     if (!recipientName || !productName) {
       return NextResponse.json(
-        { error: 'Destinat├írio e Produto s├úo obrigat├│rios' },
+        { error: 'Destinatário e Produto são obrigatórios' },
         { status: 400 }
       )
     }
@@ -56,6 +59,37 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Monta os itens a criar
+    // Novo formato: array de bows vindo do formulário
+    // Formato antigo: campos únicos de laço (compatibilidade)
+    const itemsToCreate = bowItems && Array.isArray(bowItems) && bowItems.length > 0
+      ? bowItems.map((b: any, idx: number) => ({
+          productName,
+          variation:    variation    || null,
+          quantity:     Number(quantity) || 1,
+          totalItems:   idx === 0 && totalItems != null ? Number(totalItems) : null,
+          theme:        theme        || null,
+          childName:    childName    || null,
+          bowColor:     b.bowColor   || null,
+          bowType:      b.bowType    || 'NONE',
+          bowQty:       b.bowQty     != null ? Number(b.bowQty)     : null,
+          appliqueType: b.appliqueType || 'NONE',
+          appliqueQty:  b.appliqueQty != null ? Number(b.appliqueQty) : null,
+        }))
+      : [{
+          productName,
+          variation:    variation    || null,
+          quantity:     Number(quantity) || 1,
+          totalItems:   totalItems   != null ? Number(totalItems)   : null,
+          theme:        theme        || null,
+          childName:    childName    || null,
+          bowColor:     bowColor     || null,
+          bowType:      bowType      || 'NONE',
+          bowQty:       bowQty       != null ? Number(bowQty)       : null,
+          appliqueType: appliqueType || 'NONE',
+          appliqueQty:  appliqueQty  != null ? Number(appliqueQty)  : null,
+        }]
+
     const order = await prisma.order.create({
       data: {
         workspaceId:    'ws_atelier',
@@ -72,25 +106,13 @@ export async function POST(req: NextRequest) {
         artStatus:      artStatus      || null,
         status:         'PENDING',
         items: {
-          create: [{
-            productName,
-            variation:    variation    || null,
-            quantity:     Number(quantity)   || 1,
-            totalItems:   totalItems   != null ? Number(totalItems)   : null,
-            theme:        theme        || null,
-            childName:    childName    || null,
-            bowColor:     bowColor     || null,
-            bowType:      bowType      || 'NONE',
-            bowQty:       bowQty       != null ? Number(bowQty)       : null,
-            appliqueType: appliqueType || 'NONE',
-            appliqueQty:  appliqueQty  != null ? Number(appliqueQty)  : null,
-          }]
+          create: itemsToCreate
         }
       },
       include: { items: true }
     })
 
-    // Cria o WorkItem inicial (setor Arte)
+    // Cria o WorkItem inicial (setor Arte) apontando para o primeiro item
     await prisma.workItem.create({
       data: {
         workspaceId:  'ws_atelier',
@@ -108,4 +130,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Erro ao criar pedido' }, { status: 500 })
   }
 }
-

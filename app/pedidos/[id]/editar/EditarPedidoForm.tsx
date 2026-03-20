@@ -4,6 +4,25 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
+const BOW_COLORS = [
+  'AMARELO BEBE', 'AMARELO OURO', 'AZUL BEBE', 'AZUL ROYAL', 'DOURADO',
+  'LARANJA', 'LILAS', 'MARROM', 'PINK', 'PRETO', 'ROSA BEBE', 'ROSE',
+  'ROXO', 'VERDE', 'VERDE AGUA', 'VERDE MUSGO', 'VERMELHO',
+]
+
+interface BowItem {
+  id?: string
+  bowColor: string
+  bowType: string
+  bowQty: string | number
+  appliqueType: string
+  appliqueQty: string | number
+}
+
+const emptyBow = (): BowItem => ({
+  bowColor: '', bowType: 'NONE', bowQty: '', appliqueType: 'NONE', appliqueQty: '',
+})
+
 interface Props {
   order: any
   item: any
@@ -51,6 +70,20 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [showHistory, setShowHistory] = useState(false)
 
+  // Inicializa bows a partir de todos os items do pedido
+  const [bows, setBows] = useState<BowItem[]>(() => {
+    const items = order.items && order.items.length > 0 ? order.items : (item ? [item] : [])
+    if (items.length === 0) return [emptyBow()]
+    return items.map((it: any) => ({
+      id:          it.id,
+      bowColor:    it.bowColor    ?? '',
+      bowType:     it.bowType     ?? 'NONE',
+      bowQty:      it.bowQty      ?? '',
+      appliqueType: it.appliqueType ?? 'NONE',
+      appliqueQty: it.appliqueQty ?? '',
+    }))
+  })
+
   useEffect(() => {
     fetch(`/api/orders/${order.id}/history`)
       .then(r => r.json())
@@ -59,7 +92,6 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
   }, [order.id])
 
   const [form, setForm] = useState({
-    // ── Dados do pedido ───────────────────────────────────────────────
     externalId:     order.externalId     ?? '',
     buyerUsername:  order.buyerUsername  ?? '',
     storeId:        order.storeId        ?? 'store_fofuras',
@@ -68,26 +100,30 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
     notes:          order.notes          ?? '',
     status:         order.status         ?? 'PENDING',
     productionType: order.productionType ?? '',
-    // ── Arte ──────────────────────────────────────────────────────────
     artType:        order.artType        ?? '',
     artStatus:      order.artStatus      ?? '',
-    // ── Dados do produto ─────────────────────────────────────────────
     productName:    item?.productName    ?? '',
     variation:      item?.variation      ?? '',
     quantity:       item?.quantity       ?? 1,
     totalItems:     item?.totalItems     ?? '',
     theme:          item?.theme ?? order.theme ?? '',
     childName:      item?.childName      ?? '',
-    // ── Laço e Aplique ────────────────────────────────────────────────
-    bowColor:       item?.bowColor       ?? '',
-    bowType:        item?.bowType        ?? 'NONE',
-    bowQty:         item?.bowQty         ?? '',
-    appliqueType:   item?.appliqueType   ?? 'NONE',
-    appliqueQty:    item?.appliqueQty    ?? '',
   })
 
   function handle(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
+  }
+
+  function handleBow(index: number, field: keyof BowItem, value: string) {
+    setBows(prev => prev.map((b, i) => i === index ? { ...b, [field]: value } : b))
+  }
+
+  function addBow() {
+    setBows(prev => [...prev, emptyBow()])
+  }
+
+  function removeBow(index: number) {
+    setBows(prev => prev.filter((_, i) => i !== index))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -100,13 +136,18 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          itemId:      item?.id,
           artType:     form.artType     || null,
           artStatus:   form.artStatus   || null,
           quantity:    Number(form.quantity)    || 1,
           totalItems:  form.totalItems  !== '' ? Number(form.totalItems)  : null,
-          bowQty:      form.bowQty      !== '' ? Number(form.bowQty)      : null,
-          appliqueQty: form.appliqueQty !== '' ? Number(form.appliqueQty) : null,
+          items: bows.map(b => ({
+            id:          b.id || undefined,
+            bowColor:    b.bowColor    || null,
+            bowType:     b.bowType     || 'NONE',
+            bowQty:      b.bowQty     !== '' ? Number(b.bowQty)     : null,
+            appliqueType: b.appliqueType || 'NONE',
+            appliqueQty: b.appliqueQty !== '' ? Number(b.appliqueQty) : null,
+          })),
         })
       })
       if (!res.ok) throw new Error()
@@ -178,21 +219,9 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
             <label className="block text-sm font-medium text-gray-600 mb-1">Destinatário *</label>
             <input name="recipientName" value={form.recipientName} onChange={handle} required className={inputClass} />
           </div>
-          {!isOp && (
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Data de Envio</label>
-              <input name="dueDate" type="date" value={form.dueDate} onChange={handle} className={inputClass} />
-            </div>
-          )}
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Status</label>
-            <select name="status" value={form.status} onChange={handle} className={inputClass}>
-              <option value="PENDING">Aguardando</option>
-              <option value="IN_PROGRESS">Em produção</option>
-              <option value="DONE">Concluído</option>
-              <option value="POSTED">Postado</option>
-              <option value="CANCELLED">Cancelado</option>
-            </select>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Data de Envio</label>
+            <input name="dueDate" type="date" value={form.dueDate} onChange={handle} className={inputClass} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Tipo de Produção</label>
@@ -203,24 +232,33 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
               <option value="PRONTA_ENTREGA">Pronta Entrega</option>
             </select>
           </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-600 mb-2">Setor Atual</label>
-          {currentStepName ? (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-lg">
-                {currentStepName}
-              </span>
-              {currentStepStatus && (
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${STEP_STATUS_COLOR[currentStepStatus] ?? 'bg-gray-100 text-gray-600'}`}>
-                  {STEP_STATUS_LABEL[currentStepStatus] ?? currentStepStatus}
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Status</label>
+            <select name="status" value={form.status} onChange={handle} className={inputClass} disabled={isOp}>
+              <option value="PENDING">Aguardando</option>
+              <option value="IN_PROGRESS">Em produção</option>
+              <option value="DONE">Concluído</option>
+              <option value="POSTED">Enviado</option>
+              <option value="CANCELLED">Cancelado</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">Setor atual</label>
+            {currentStepName ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-lg">
+                  {currentStepName}
                 </span>
-              )}
-            </div>
-          ) : (
-            <span className="text-sm text-gray-400 italic">Nenhum setor ativo</span>
-          )}
+                {currentStepStatus && (
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${STEP_STATUS_COLOR[currentStepStatus] ?? 'bg-gray-100 text-gray-600'}`}>
+                    {STEP_STATUS_LABEL[currentStepStatus] ?? currentStepStatus}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span className="text-sm text-gray-400 italic">Nenhum setor ativo</span>
+            )}
+          </div>
         </div>
 
         <div className="mt-4">
@@ -283,37 +321,93 @@ export default function EditarPedidoForm({ order, item, currentStepName, current
 
       {/* ── LAÇO E APLIQUE ───────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
-        <h2 className="font-semibold text-gray-700 mb-4">Laço e Aplique</h2>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Cor do Laço</label>
-            <input name="bowColor" value={form.bowColor} onChange={handle} className={inputClass} placeholder="Ex: Rosa bebê" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Tipo do Laço</label>
-            <select name="bowType" value={form.bowType} onChange={handle} className={inputClass}>
-              <option value="NONE">Sem laço</option>
-              <option value="SIMPLE">Simples</option>
-              <option value="LUXURY">Luxo</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Qtd de Laços</label>
-            <input name="bowQty" type="number" min={0} value={form.bowQty} onChange={handle} className={`${inputClass} font-bold text-purple-600`} placeholder="Ex: 30" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Tipo de Aplique</label>
-            <select name="appliqueType" value={form.appliqueType} onChange={handle} className={inputClass}>
-              <option value="NONE">Sem aplique</option>
-              <option value="SIMPLE">Simples</option>
-              <option value="THREE_D">3D</option>
-              <option value="THREE_D_LUX">3D Luxo</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Qtd de Apliques</label>
-            <input name="appliqueQty" type="number" min={0} value={form.appliqueQty} onChange={handle} className={`${inputClass} font-bold text-purple-600`} placeholder="Ex: 20" />
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-700">Laço e Aplique</h2>
+          <button
+            type="button"
+            onClick={addBow}
+            className="text-sm text-purple-600 border border-purple-200 px-3 py-1.5 rounded-lg hover:bg-purple-50 font-medium"
+          >
+            + Adicionar cor
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {bows.map((bow, index) => (
+            <div key={bow.id ?? index} className="relative border border-gray-100 rounded-xl p-4 bg-gray-50">
+              {bows.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeBow(index)}
+                  className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-lg leading-none font-bold"
+                  title="Remover"
+                >
+                  ×
+                </button>
+              )}
+              {bows.length > 1 && (
+                <p className="text-xs font-semibold text-purple-600 mb-3">Cor {index + 1}</p>
+              )}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Cor do Laço</label>
+                  <select
+                    value={bow.bowColor}
+                    onChange={e => handleBow(index, 'bowColor', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">-- Selecione --</option>
+                    {BOW_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Tipo do Laço</label>
+                  <select
+                    value={bow.bowType}
+                    onChange={e => handleBow(index, 'bowType', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="NONE">Sem laço</option>
+                    <option value="SIMPLE">Simples</option>
+                    <option value="LUXURY">Luxo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Qtd de Laços</label>
+                  <input
+                    type="number" min={0}
+                    value={bow.bowQty}
+                    onChange={e => handleBow(index, 'bowQty', e.target.value)}
+                    className={`${inputClass} font-bold text-purple-600`}
+                    placeholder="Ex: 30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Tipo de Aplique</label>
+                  <select
+                    value={bow.appliqueType}
+                    onChange={e => handleBow(index, 'appliqueType', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="NONE">Sem aplique</option>
+                    <option value="SIMPLE">Simples</option>
+                    <option value="THREE_D">3D</option>
+                    <option value="THREE_D_LUX">3D Luxo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Qtd de Apliques</label>
+                  <input
+                    type="number" min={0}
+                    value={bow.appliqueQty}
+                    onChange={e => handleBow(index, 'appliqueQty', e.target.value)}
+                    className={`${inputClass} font-bold text-purple-600`}
+                    placeholder="Ex: 20"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

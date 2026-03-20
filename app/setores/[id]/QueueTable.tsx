@@ -410,8 +410,10 @@ export default function QueueTable({
       if (filterEstoqueInsuf && !item.sectorNotes?.includes('[ESTOQUE_INSUFICIENTE]')) return false
       if (filterSemData && item.dueDate) return false
       if (filterBowColor) {
-        const color = item.order.items[0]?.bowColor?.toLowerCase().trim() ?? ''
-        if (!color.includes(filterBowColor.toLowerCase().trim())) return false
+        const hasColor = item.order.items.some(
+          (oi: any) => oi.bowColor?.toUpperCase().trim() === filterBowColor
+        )
+        if (!hasColor) return false
       }
       if (filterBowType && item.order.items[0]?.bowType !== filterBowType) return false
       if (filterLoja && item.order.store.name !== filterLoja) return false
@@ -452,17 +454,20 @@ export default function QueueTable({
     .filter(i => selectedIds.has(i.id))
     .reduce((sum, i) => sum + (i.order.items[0]?.totalItems ?? 0), 0)
 
-  // Soma de laços da cor filtrada
+  // Soma de laços da cor filtrada — considera todos os itens do pedido
   const totalBowColorSelected = filterBowColor
     ? filtered
         .filter(i => selectedIds.has(i.id))
-        .reduce((sum, i) => sum + (i.order.items[0]?.bowQty ?? 0), 0)
+        .reduce((sum, wi) => sum + wi.order.items
+          .filter((oi: any) => oi.bowColor?.toUpperCase().trim() === filterBowColor)
+          .reduce((s: number, oi: any) => s + (oi.bowQty ?? 0), 0), 0)
     : 0
 
   // ── NOVO: soma de apliques dos itens selecionados (usado no setor Impressão) ──
   const totalAppliqueSelected = filtered
     .filter(i => selectedIds.has(i.id))
-    .reduce((sum, i) => sum + (i.order.items[0]?.appliqueQty ?? 0), 0)
+    .reduce((sum, wi) => sum + wi.order.items
+      .reduce((s: number, oi: any) => s + (oi.appliqueQty ?? 0), 0), 0)
 
 
   async function handleAssign(workItemId: string) {
@@ -922,39 +927,41 @@ export default function QueueTable({
 
 
                   {/* Laço, aplique e qtd itens — linha de destaque */}
-                  {oi && (
-                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                      {/* Cor do laço */}
-                      {oi.bowColor && <BowColorBadge color={oi.bowColor} />}
+                  {item.order.items.map((bowItem: any, bowIdx: number) => (
+                    (bowItem.bowType && bowItem.bowType !== 'NONE') || (bowItem.appliqueType && bowItem.appliqueType !== 'NONE') || bowItem.bowColor ? (
+                      <div key={bowIdx} className="flex flex-wrap items-center gap-2 mt-1.5">
+                        {/* Cor do laço */}
+                        {bowItem.bowColor && <BowColorBadge color={bowItem.bowColor} />}
 
-                      {/* Tipo + qtd laço */}
-                      {oi.bowType && oi.bowType !== 'NONE' && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-pink-50 text-pink-700 font-medium">
-                          Laço {BOW_LABEL[oi.bowType]}
-                          {oi.bowQty != null && (
-                            <span className="ml-1 font-bold text-pink-800"> {oi.bowQty}</span>
-                          )}
-                        </span>
-                      )}
+                        {/* Tipo + qtd laço */}
+                        {bowItem.bowType && bowItem.bowType !== 'NONE' && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-pink-50 text-pink-700 font-medium">
+                            Laço {BOW_LABEL[bowItem.bowType]}
+                            {bowItem.bowQty != null && (
+                              <span className="ml-1 font-bold text-pink-800"> {bowItem.bowQty}</span>
+                            )}
+                          </span>
+                        )}
 
-                      {/* Tipo + qtd aplique */}
-                      {oi.appliqueType && oi.appliqueType !== 'NONE' && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 font-medium">
-                          Aplique {APPLIQUE_LABEL[oi.appliqueType]}
-                          {oi.appliqueQty != null && (
-                            <span className="ml-1 font-bold text-orange-800"> {oi.appliqueQty}</span>
-                          )}
-                        </span>
-                      )}
+                        {/* Tipo + qtd aplique */}
+                        {bowItem.appliqueType && bowItem.appliqueType !== 'NONE' && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 font-medium">
+                            Aplique {APPLIQUE_LABEL[bowItem.appliqueType]}
+                            {bowItem.appliqueQty != null && (
+                              <span className="ml-1 font-bold text-orange-800"> {bowItem.appliqueQty}</span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    ) : null
+                  ))}
 
-                      {/* Qtd itens — destaque especial */}
-                      {oi.totalItems != null && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 font-bold">
-                          {oi.totalItems} itens
-                        </span>
-                      )}
-
-
+                  {/* Qtd itens — destaque especial — sempre do primeiro item */}
+                  {oi?.totalItems != null && (
+                    <div className="mt-1.5">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 font-bold">
+                        {oi.totalItems} itens
+                      </span>
                     </div>
                   )}
 
