@@ -39,7 +39,7 @@ export default async function SetorPage({ params }: { params: Promise<{ id: stri
   })
 
   const workItemWhere: any = step
-    ? { stepId: step.id, status: { in: ['TODO', 'DOING'] }, order: { deletedAt: null } }
+    ? { stepId: step.id, status: { in: ['TODO', 'DOING'] }, order: { deletedAt: null, status: { not: 'CANCELLED' } } }
     : { id: 'noop' }
 
   if (role === 'OPERADOR') {

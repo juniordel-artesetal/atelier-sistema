@@ -155,6 +155,8 @@ export default function QueueTable({
   responsaveisProducao?: { id: string; name: string }[]
 }) {
   const isArteSector = departmentId === 'dep_arte'
+  // ── NOVO: identifica o setor de Impressão ────────────────────────────────
+  const isImpressaoSector = departmentId === 'dep_impressao'
   const router = useRouter()
   const { data: session } = useSession()
   const role = session?.user?.role
@@ -457,6 +459,11 @@ export default function QueueTable({
         .reduce((sum, i) => sum + (i.order.items[0]?.bowQty ?? 0), 0)
     : 0
 
+  // ── NOVO: soma de apliques dos itens selecionados (usado no setor Impressão) ──
+  const totalAppliqueSelected = filtered
+    .filter(i => selectedIds.has(i.id))
+    .reduce((sum, i) => sum + (i.order.items[0]?.appliqueQty ?? 0), 0)
+
 
   async function handleAssign(workItemId: string) {
     setLoadingId(workItemId)
@@ -595,12 +602,12 @@ export default function QueueTable({
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Cor do Laco</label>
-          <input
-            value={filterBowColor}
-            onChange={e => setFilterBowColor(e.target.value)}
-            placeholder="Ex: Rosa, Azul..."
-            className={`${inputClass} w-32`}
-          />
+          <select value={filterBowColor} onChange={e => setFilterBowColor(e.target.value)} className={inputClass}>
+            <option value="">Todas</option>
+            {Object.keys(BOW_COLOR_MAP).map(cor => (
+              <option key={cor} value={cor}>{cor}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Tipo Producao</label>
@@ -703,6 +710,12 @@ export default function QueueTable({
           {someSelected && filterBowColor && totalBowColorSelected > 0 && (
             <span className="text-sm font-bold text-pink-700 bg-pink-50 border border-pink-200 px-3 py-1 rounded-lg">
               Lacos {filterBowColor}: {totalBowColorSelected}
+            </span>
+          )}
+          {/* ── NOVO: badge de soma de apliques — só aparece no setor Impressão ── */}
+          {someSelected && isImpressaoSector && totalAppliqueSelected > 0 && (
+            <span className="text-sm font-bold text-violet-700 bg-violet-50 border border-violet-200 px-3 py-1 rounded-lg">
+              Total de apliques: {totalAppliqueSelected}
             </span>
           )}
 
@@ -1233,158 +1246,7 @@ export default function QueueTable({
             <p className="text-sm text-gray-500 mb-4">
               {revertItem.order.recipientName} &mdash; {revertItem.order.productType}
             </p>
-            {/* BARRA DE ATRIBUIÇÃO EM MASSA */}
-      <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3 mb-2">
-          {/* Checkbox selecionar todos */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={toggleAllCards}
-              className="accent-purple-600 w-4 h-4"
-            />
-            <span className="text-sm text-gray-600 font-medium">
-              {someSelected ? `${selectedIds.size} selecionado(s)` : 'Selecionar todos'}
-            </span>
-          </label>
-
-          {/* Soma de itens */}
-          {someSelected && totalItemsSelected > 0 && (
-            <span className="text-sm font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1 rounded-lg">
-              Total de itens: {totalItemsSelected}
-            </span>
-          )}
-          {someSelected && filterBowColor && totalBowColorSelected > 0 && (
-            <span className="text-sm font-bold text-pink-700 bg-pink-50 border border-pink-200 px-3 py-1 rounded-lg">
-              Lacos {filterBowColor}: {totalBowColorSelected}
-            </span>
-          )}
-
-          {/* Atribuir responsável em massa */}
-          {someSelected && canManage && (
-            <>
-              <select
-                value={bulkResp}
-                onChange={e => setBulkResp(e.target.value)}
-                className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
-              >
-                <option value="">Atribuir responsável...</option>
-                <option value="">Sem responsável</option>
-                {operadores.map(op => (
-                  <option key={op.id} value={op.id}>{op.name}</option>
-                ))}
-              </select>
-              <button
-                onClick={handleBulkAssign}
-                disabled={bulkAssigning}
-                className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50"
-              >
-                {bulkAssigning ? 'Atribuindo...' : 'Atribuir'}
-              </button>
-              <button
-                onClick={() => { setSelectedIds(new Set()); setBulkResp('') }}
-                className="text-gray-400 hover:text-gray-600 text-xs"
-              >
-                Cancelar
-              </button>
-
-          {/* Previsão de entrega em lote — só ADMIN */}
-          {someSelected && isAdmin && (
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 whitespace-nowrap">Prev. entrega tarefa:</label>
-              <input
-                type="date"
-                value={bulkDueDate}
-                onChange={e => setBulkDueDate(e.target.value)}
-                className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-              />
-              {bulkDueDate && (
-                <button
-                  onClick={handleBulkDueDate}
-                  disabled={savingBulkDue}
-                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
-                >
-                  {savingBulkDue ? '...' : 'Definir'}
-                </button>
-              )}
-            </div>
-          )}
-            </>
-          )}
-
-          {/* Responsável produção em lote — só Arte, só ADMIN/DELEGADOR */}
-          {someSelected && canManage && responsaveisProducao && responsaveisProducao.length > 0 && (
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 whitespace-nowrap">Resp. produção:</label>
-              <select
-                value={bulkProdResp}
-                onChange={e => setBulkProdResp(e.target.value)}
-                className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
-              >
-                <option value="">Sem responsável</option>
-                {responsaveisProducao.filter(r => (r as any).active !== false).map(r => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
-              <button
-                onClick={handleBulkProdResp}
-                disabled={savingProdResp}
-                className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
-              >
-                {savingProdResp ? '...' : 'Atribuir'}
-              </button>
-            </div>
-          )}
-          {/* Responsável arte em lote — só setor Arte, só ADMIN/DELEGADOR */}
-          {someSelected && canManage && isArteSector && responsaveisProducao && responsaveisProducao.length > 0 && (
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 whitespace-nowrap">Resp. arte:</label>
-              <select
-                value={bulkArtResp}
-                onChange={e => setBulkArtResp(e.target.value)}
-                className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
-              >
-                <option value="">Sem responsável</option>
-                {responsaveisProducao.filter(r => (r as any).active !== false).map(r => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
-              <button
-                onClick={handleBulkArtResp}
-                disabled={savingArtResp}
-                className="bg-pink-600 hover:bg-pink-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
-              >
-                {savingArtResp ? '...' : 'Atribuir'}
-              </button>
-            </div>
-          )}
-
-          {/* Iniciar / Concluir em massa — todos os usuários */}
-          {someSelected && (
-            <div className="flex items-center gap-2 ml-auto">
-              {filtered.some(i => selectedIds.has(i.id) && i.status === 'TODO') && (
-                <button
-                  onClick={() => handleBulkTransition('advance')}
-                  disabled={bulkAssigning}
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50"
-                >
-                  {bulkAssigning ? '...' : 'Iniciar selecionados'}
-                </button>
-              )}
-              {filtered.some(i => selectedIds.has(i.id) && i.status === 'DOING') && (
-                <button
-                  onClick={() => handleBulkTransition('advance')}
-                  disabled={bulkAssigning}
-                  className="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50"
-                >
-                  {bulkAssigning ? '...' : 'Concluir selecionados'}
-                </button>
-              )}
-            </div>
-          )}
-      </div>
-
-      <div className="space-y-3">
+            <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Devolver para qual setor? *</label>
                 <select
@@ -1427,4 +1289,3 @@ export default function QueueTable({
     </>
   )
 }
-
