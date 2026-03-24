@@ -216,6 +216,8 @@ export default function QueueTable({
   const [filterDevolvido, setFilterDevolvido]     = useState(false)
   const [filterEstoqueInsuf, setFilterEstoqueInsuf] = useState(false)
   const [filterSemData, setFilterSemData]           = useState(false)
+  const [filterSemProdResp, setFilterSemProdResp]   = useState(false)
+  const [filterSemArtResp, setFilterSemArtResp]     = useState(false)
   const [filterBowColor, setFilterBowColor]       = useState('')
   const [filterBowType, setFilterBowType]         = useState('')
   const [filterLoja, setFilterLoja]               = useState('')
@@ -409,6 +411,8 @@ export default function QueueTable({
       if (filterDevolvido && !item.sectorNotes?.startsWith('[DEVOLVIDO]')) return false
       if (filterEstoqueInsuf && !item.sectorNotes?.includes('[ESTOQUE_INSUFICIENTE]')) return false
       if (filterSemData && item.dueDate) return false
+      if (filterSemProdResp && item.productionResponsibleId) return false
+      if (filterSemArtResp && item.artResponsibleId) return false
       if (filterBowColor) {
         const hasColor = item.order.items.some(
           (oi: any) => oi.bowColor?.toUpperCase().trim() === filterBowColor
@@ -440,9 +444,9 @@ export default function QueueTable({
       }
       return true
     })
-  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterArtResp, filterDevolvido, filterEstoqueInsuf, filterSemData, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate, filterBowColor])
+  }, [workItems, search, filterStatus, filterEnvio, filterEntrada, filterResponsavel, filterProdResp, filterArtResp, filterDevolvido, filterEstoqueInsuf, filterSemData, filterSemProdResp, filterSemArtResp, filterBowType, filterLoja, filterProdType, filterArtStatus, filterDueDate, filterBowColor])
 
-  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterArtResp || filterDevolvido || filterEstoqueInsuf || filterSemData || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate || filterBowColor)
+  const hasFilter = !!(search || filterStatus || filterEnvio || filterEntrada || filterResponsavel || filterProdResp || filterArtResp || filterDevolvido || filterEstoqueInsuf || filterSemData || filterSemProdResp || filterSemArtResp || filterBowType || filterLoja || filterProdType || filterArtStatus || filterDueDate || filterBowColor)
   const inputClass = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
 
   // Derivados de filtered — definidos aqui pois dependem do useMemo acima
@@ -676,9 +680,35 @@ export default function QueueTable({
             Estoque insuficiente
           </label>
         </div>
+        <div className="flex items-center gap-2 mt-2">
+          <input
+            type="checkbox"
+            id="filterSemProdResp"
+            checked={filterSemProdResp}
+            onChange={e => setFilterSemProdResp(e.target.checked)}
+            className="accent-indigo-500 w-4 h-4 cursor-pointer"
+          />
+          <label htmlFor="filterSemProdResp" className="text-sm text-indigo-600 font-medium cursor-pointer">
+            Sem resp. produção
+          </label>
+        </div>
+        {isArteSector && (
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              type="checkbox"
+              id="filterSemArtResp"
+              checked={filterSemArtResp}
+              onChange={e => setFilterSemArtResp(e.target.checked)}
+              className="accent-pink-500 w-4 h-4 cursor-pointer"
+            />
+            <label htmlFor="filterSemArtResp" className="text-sm text-pink-600 font-medium cursor-pointer">
+              Sem resp. arte
+            </label>
+          </div>
+        )}
         {hasFilter && (
           <button
-            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterArtResp(''); setFilterDevolvido(false); setFilterEstoqueInsuf(false); setFilterSemData(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate(''); setFilterBowColor('') }}
+            onClick={() => { setSearch(''); setFilterStatus(''); setFilterEnvio(''); setFilterEntrada(''); setFilterResponsavel(''); setFilterProdResp(''); setFilterArtResp(''); setFilterDevolvido(false); setFilterEstoqueInsuf(false); setFilterSemData(false); setFilterSemProdResp(false); setFilterSemArtResp(false); setFilterBowType(''); setFilterLoja(''); setFilterProdTipo(''); setFilterArtStatus(''); setFilterDueDate(''); setFilterBowColor('') }}
             className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
           >
             Limpar filtros
