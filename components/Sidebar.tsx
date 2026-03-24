@@ -104,6 +104,9 @@ export default function Sidebar() {
             <Link href="/lacos/lancar" className={lc('/lacos/lancar')}>
               <span style={{fontSize:14}}>&#43;</span> Lancar Producao
             </Link>
+            <Link href="/lacos/produtividade" className={lc('/lacos/produtividade')}>
+              <BarChart2 size={14} /> Produtividade Lacos
+            </Link>
           </nav>
         </div>
 
