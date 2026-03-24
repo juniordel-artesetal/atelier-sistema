@@ -17,6 +17,39 @@ async function addHistory(orderId: string, userId: string, userName: string, fie
   })
 }
 
+// Desconta o estoque de todos os itens de laço do pedido
+async function descontarEstoque(orderId: string) {
+  const allItems = await prisma.orderItem.findMany({ where: { orderId } })
+  for (const orderItem of allItems) {
+    if (!orderItem.bowColor || !orderItem.bowType || orderItem.bowType === 'NONE' || !orderItem.bowQty) continue
+    const bowColorUpper = orderItem.bowColor.trim().toUpperCase()
+    const existing = await prisma.bowStock.findFirst({
+      where: { workspaceId: 'ws_atelier', bowColor: bowColorUpper, bowType: orderItem.bowType }
+    })
+    if (existing) {
+      await prisma.bowStock.update({
+        where: { id: existing.id },
+        data:  { quantity: Math.max(0, existing.quantity - orderItem.bowQty) }
+      })
+    }
+  }
+}
+
+// Verifica se algum item tem estoque insuficiente
+async function verificarEstoqueInsuficiente(orderId: string): Promise<boolean> {
+  const allItems = await prisma.orderItem.findMany({ where: { orderId } })
+  for (const orderItem of allItems) {
+    if (!orderItem.bowColor || !orderItem.bowType || orderItem.bowType === 'NONE' || !orderItem.bowQty) continue
+    const bowColorUpper = orderItem.bowColor.trim().toUpperCase()
+    const stock = await prisma.bowStock.findFirst({
+      where: { workspaceId: 'ws_atelier', bowColor: bowColorUpper, bowType: orderItem.bowType }
+    })
+    const estoqueAtual = stock?.quantity ?? 0
+    if (estoqueAtual < orderItem.bowQty) return true
+  }
+  return false
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -59,7 +92,6 @@ export async function POST(
             departmentId: targetStep.departmentId,
             status:       'TODO',
             sectorNotes:  motivo ? `[DEVOLVIDO] ${motivo}` : '[DEVOLVIDO]',
-            // Mantém o responsável de produção já definido
             productionResponsibleId: workItem.productionResponsibleId ?? null,
           }
         }),
@@ -69,7 +101,6 @@ export async function POST(
         })
       ])
 
-      // Histórico de devolução
       await addHistory(
         workItem.orderId, userId, userName,
         'setor',
@@ -91,7 +122,6 @@ export async function POST(
         data: { status: 'IN_PROGRESS' }
       })
 
-      // Histórico de início
       await addHistory(
         workItem.orderId, userId, userName,
         'setor',
@@ -104,12 +134,11 @@ export async function POST(
 
     // ── CONCLUIR ───────────────────────────────────────────────────
     if (workItem.status === 'DOING') {
-      const currentStep = workItem.step
+      const currentStep    = workItem.step
+      const productionType = workItem.order.productionType
       let nextStep = null
 
       if (currentStep.id === 'step_impressao') {
-        const productionType = workItem.order.productionType
-
         if (!productionType) {
           return NextResponse.json({
             error: 'Defina o Tipo de Produção no pedido antes de concluir a Impressão.'
@@ -149,23 +178,11 @@ export async function POST(
       })
 
       if (nextStep) {
-        // Verificar estoque de laços ao entrar em produção
+        // ── Verificar estoque ao entrar em produção ────────────────
         let estoqueInsuficiente = false
         const prodDepts = ['dep_prod_ext', 'dep_prod_int', 'dep_pronta']
-        if (prodDepts.includes(nextStep.departmentId) && workItem.orderItemId) {
-          const orderItem = await prisma.orderItem.findUnique({
-            where: { id: workItem.orderItemId }
-          })
-          if (orderItem?.bowColor && orderItem?.bowType && orderItem.bowType !== 'NONE' && orderItem.bowQty) {
-            const bowColorUpper = orderItem.bowColor.trim().toUpperCase()
-            const stock = await prisma.bowStock.findFirst({
-              where: { workspaceId: 'ws_atelier', bowColor: bowColorUpper, bowType: orderItem.bowType }
-            })
-            const estoqueAtual = stock?.quantity ?? 0
-            if (estoqueAtual < orderItem.bowQty) {
-              estoqueInsuficiente = true
-            }
-          }
+        if (prodDepts.includes(nextStep.departmentId)) {
+          estoqueInsuficiente = await verificarEstoqueInsuficiente(workItem.orderId)
         }
 
         await prisma.workItem.create({
@@ -181,39 +198,32 @@ export async function POST(
           }
         })
 
-        // Ao chegar na Expedição, descontar laços do estoque
-        if (nextStep.departmentId === 'dep_expedicao' && workItem.orderItemId) {
-          const orderItem = await prisma.orderItem.findUnique({
-            where: { id: workItem.orderItemId }
-          })
-          if (orderItem?.bowColor && orderItem?.bowType && orderItem.bowType !== 'NONE' && orderItem.bowQty) {
-            const bowColorUpper = orderItem.bowColor.trim().toUpperCase()
-            const existing = await prisma.bowStock.findFirst({
-              where: { workspaceId: 'ws_atelier', bowColor: bowColorUpper, bowType: orderItem.bowType }
-            })
-            if (existing) {
-              await prisma.bowStock.update({
-                where: { id: existing.id },
-                data:  { quantity: Math.max(0, existing.quantity - orderItem.bowQty) }
-              })
-            }
-          }
+        // ── DESCONTO DE ESTOQUE ────────────────────────────────────
+        // Pedidos NÃO pronta entrega → desconta ao SAIR da Impressão
+        // Pedidos pronta entrega     → desconta ao SAIR da Expedição (bloco else abaixo)
+        if (currentStep.id === 'step_impressao' && productionType !== 'PRONTA_ENTREGA') {
+          await descontarEstoque(workItem.orderId)
         }
 
-        // Histórico de avanço de setor
         await addHistory(
           workItem.orderId, userId, userName,
           'setor',
           currentStep.name,
           nextStep.name
         )
+
       } else {
+        // nextStep === null → pedido sendo postado (saindo da Expedição)
+        // Pronta entrega desconta aqui
+        if (currentStep.id === 'step_expedicao' && productionType === 'PRONTA_ENTREGA') {
+          await descontarEstoque(workItem.orderId)
+        }
+
         await prisma.order.update({
           where: { id: workItem.orderId },
           data: { status: 'POSTED' }
         })
 
-        // Histórico de postagem
         await addHistory(
           workItem.orderId, userId, userName,
           'setor',
