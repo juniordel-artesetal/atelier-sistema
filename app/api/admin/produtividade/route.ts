@@ -6,8 +6,16 @@ import { authOptions } from '@/lib/auth'
 // Setores que contabilizam por ITENS (totalItems)
 const SETORES_POR_ITENS = ['dep_prod_ext', 'dep_prod_int', 'dep_pronta']
 
-// Setores que contabilizam por PEDIDOS (count de tarefas)
-const SETORES_POR_PEDIDOS = ['dep_arte', 'dep_arquivo', 'dep_impressao', 'dep_expedicao']
+// ── Tabela de preços ──────────────────────────────────────────────────────────
+// Cofrinho sem laço  → R$0,20 por item
+// Cofrinho com laço  → R$0,30 por item
+const PRECO_SEM_LACO = 0.20
+const PRECO_COM_LACO = 0.30
+
+function calcularValor(bowType: string | null, totalItems: number): number {
+  if (!bowType || bowType === 'NONE') return totalItems * PRECO_SEM_LACO
+  return totalItems * PRECO_COM_LACO
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -33,19 +41,16 @@ export async function GET(req: NextRequest) {
 
     if (userId)  where.responsibleId = userId
     if (deptId)  where.departmentId  = deptId
-    if (bowType) {
-      where.orderItem = { ...(where.orderItem ?? {}), bowType }
-    }
+    if (bowType) where.orderItem = { bowType }
     if (produto) {
       where.order = {
-        ...( where.order ?? {} ),
         deletedAt: null,
         items: { some: { productName: { contains: produto, mode: 'insensitive' } } }
       }
     }
     if (dateFrom || dateTo) {
       where.doneAt = {
-        ...(dateFrom ? { gte: new Date(dateFrom) }                   : {}),
+        ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
         ...(dateTo   ? { lte: new Date(dateTo + 'T23:59:59.999Z') } : {}),
       }
     }
@@ -61,22 +66,7 @@ export async function GET(req: NextRequest) {
       orderBy: { doneAt: 'desc' }
     })
 
-    // Agrupar por operador
-    const grouped: Record<string, {
-      userId: string | null
-      userName: string
-      departments: Record<string, {
-        name: string
-        deptId: string
-        metrica: 'itens' | 'pedidos'
-        count: number       // tarefas concluídas
-        totalItems: number  // itens físicos (prod externa) ou pedidos (arte)
-      }>
-      totalTarefas: number
-      totalItens: number    // prod externa: soma totalItems
-      totalPedidos: number  // arte e outros: soma de tarefas
-      items: any[]
-    }> = {}
+    const grouped: Record<string, any> = {}
 
     for (const wi of workItems) {
       const key      = wi.responsibleId ?? 'sem_responsavel'
@@ -84,43 +74,35 @@ export async function GET(req: NextRequest) {
 
       if (!grouped[key]) {
         grouped[key] = {
-          userId:       wi.responsibleId,
-          userName,
-          departments:  {},
-          totalTarefas: 0,
-          totalItens:   0,
-          totalPedidos: 0,
-          items:        [] as any[],
+          userId: wi.responsibleId, userName,
+          departments: {}, totalTarefas: 0,
+          totalItens: 0, totalPedidos: 0, totalValor: 0, items: [],
         }
       }
 
-      const g         = grouped[key]
-      const dId       = wi.department.id
-      const dName     = wi.department.name
-      const porItens  = SETORES_POR_ITENS.includes(dId)
-      const metrica   = porItens ? 'itens' : 'pedidos'
-      const itemQty   = wi.orderItem?.totalItems ?? wi.orderItem?.quantity ?? 1
+      const g        = grouped[key]
+      const dId      = wi.department.id
+      const dName    = wi.department.name
+      const porItens = SETORES_POR_ITENS.includes(dId)
+      const metrica  = porItens ? 'itens' : 'pedidos'
+      const itemQty  = wi.orderItem?.totalItems ?? wi.orderItem?.quantity ?? 1
+      const bowTypeVal = wi.orderItem?.bowType ?? 'NONE'
 
       if (!g.departments[dId]) {
         g.departments[dId] = { name: dName, deptId: dId, metrica, count: 0, totalItems: 0 }
       }
-
       g.departments[dId].count++
-      // Por itens: soma totalItems; por pedidos: soma 1 por tarefa
       g.departments[dId].totalItems += porItens ? itemQty : 1
 
       g.totalTarefas++
-      if (porItens) {
-        g.totalItens += itemQty
-      } else {
-        g.totalPedidos += 1
-      }
+      if (porItens) g.totalItens += itemQty
+      else g.totalPedidos += 1
 
-      // Contabilizado é SEMPRE a quantidade de itens produzidos (cofrinhos)
-      // O filtro de laço apenas segmenta quais pedidos aparecem, não muda a métrica
-      const bowQtyVal    = wi.orderItem?.bowQty ?? null
-      const bowTypeVal   = wi.orderItem?.bowType ?? 'NONE'
-      const contabilizado = porItens ? itemQty : 1
+      let valorItem = 0
+      if (porItens) {
+        valorItem = calcularValor(bowTypeVal, itemQty)
+        g.totalValor += valorItem
+      }
 
       g.items.push({
         id:            wi.id,
@@ -132,20 +114,18 @@ export async function GET(req: NextRequest) {
         recipientName: wi.order.recipientName,
         productName:   wi.orderItem?.productName ?? null,
         totalItems:    itemQty,
-        contabilizado,
+        contabilizado: porItens ? itemQty : 1,
         bowType:       bowTypeVal,
-        bowQty:        bowQtyVal,
+        bowQty:        wi.orderItem?.bowQty     ?? null,
         appliqueType:  wi.orderItem?.appliqueType ?? null,
         appliqueQty:   wi.orderItem?.appliqueQty  ?? null,
+        valor:         valorItem,
       })
     }
 
-    const result = Object.values(grouped).sort((a, b) => {
-      // Ordena por total de itens primeiro, depois por pedidos
-      const scoreA = a.totalItens * 10 + a.totalPedidos
-      const scoreB = b.totalItens * 10 + b.totalPedidos
-      return scoreB - scoreA
-    })
+    const result = Object.values(grouped).sort((a: any, b: any) =>
+      (b.totalItens * 10 + b.totalPedidos) - (a.totalItens * 10 + a.totalPedidos)
+    )
 
     return NextResponse.json(result)
   } catch (error) {
@@ -153,5 +133,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Erro ao buscar produtividade' }, { status: 500 })
   }
 }
-
-

@@ -18,8 +18,14 @@ interface TaskItem {
   metrica: 'itens' | 'pedidos'
   externalId: string | null
   recipientName: string
+  productName: string | null
   totalItems: number
   contabilizado: number
+  bowType: string | null
+  bowQty: number | null
+  appliqueType: string | null
+  appliqueQty: number | null
+  valor: number
 }
 
 interface OperatorData {
@@ -29,6 +35,7 @@ interface OperatorData {
   totalTarefas: number
   totalItens: number
   totalPedidos: number
+  totalValor: number
   items: TaskItem[]
 }
 
@@ -36,6 +43,10 @@ interface Operador { id: string; name: string }
 interface Department { id: string; name: string }
 
 const SETORES_POR_ITENS = ['dep_prod_ext', 'dep_prod_int', 'dep_pronta']
+
+function formatBRL(value: number) {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
 
 export default function ProdutividadePage() {
   const [data, setData]         = useState<OperatorData[]>([])
@@ -48,15 +59,14 @@ export default function ProdutividadePage() {
   const [deptId,   setDeptId]   = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo,   setDateTo]   = useState('')
-  const [metrica,  setMetrica]  = useState('')   // '' | 'itens' | 'pedidos'
-  const [bowType,  setBowType]  = useState('')   // '' | 'SIMPLE' | 'LUXURY' | 'NONE'
+  const [metrica,  setMetrica]  = useState('')
+  const [bowType,  setBowType]  = useState('')
   const [produto,  setProduto]  = useState('')
   const [exporting, setExporting] = useState(false)
 
   async function handleExport() {
     setExporting(true)
     try {
-      // Monta dados para exportação
       const rows: any[] = []
       const filtered = metrica
         ? data.map(op => ({ ...op, items: op.items.filter((i: any) => i.metrica === metrica) }))
@@ -66,29 +76,31 @@ export default function ProdutividadePage() {
       for (const op of filtered) {
         for (const item of op.items) {
           rows.push({
-            Operador:      op.userName,
-            Data:          new Date(item.doneAt).toLocaleDateString('pt-BR'),
-            Setor:         item.department,
-            'ID Shopee':   item.externalId ?? '',
-            Destinatário:  item.recipientName,
-            Quantidade:    item.contabilizado,
-            Métrica:       item.metrica === 'itens' ? 'Itens' : 'Pedido',
+            Operador:       op.userName,
+            Data:           new Date(item.doneAt).toLocaleDateString('pt-BR'),
+            Setor:          item.department,
+            'ID Shopee':    item.externalId ?? '',
+            Destinatário:   item.recipientName,
+            Quantidade:     item.contabilizado,
+            Métrica:        item.metrica === 'itens' ? 'Itens' : 'Pedido',
+            'Tipo Laço':    item.bowType === 'LUXURY' ? 'Luxo' : item.bowType === 'SIMPLE' ? 'Simples' : 'Sem laço',
+            'Valor (R$)':   item.valor > 0 ? item.valor.toFixed(2).replace('.', ',') : '',
           })
         }
-        // Linha de subtotal por operador
         rows.push({
-          Operador:     op.userName,
-          Data:         '',
-          Setor:        'SUBTOTAL',
-          'ID Shopee':  '',
-          Destinatário: '',
-          Quantidade:   metrica === 'itens' ? op.totalItens : metrica === 'pedidos' ? op.totalPedidos : op.totalItens + op.totalPedidos,
-          Métrica:      metrica || 'Total',
+          Operador:      op.userName,
+          Data:          '',
+          Setor:         'SUBTOTAL',
+          'ID Shopee':   '',
+          Destinatário:  '',
+          Quantidade:    metrica === 'itens' ? op.totalItens : metrica === 'pedidos' ? op.totalPedidos : op.totalItens + op.totalPedidos,
+          Métrica:       metrica || 'Total',
+          'Tipo Laço':   '',
+          'Valor (R$)':  op.totalValor.toFixed(2).replace('.', ','),
         })
-        rows.push({}) // linha em branco entre operadores
+        rows.push({})
       }
 
-      // Gerar CSV
       const headers = Object.keys(rows[0] || {})
       const csv = [
         headers.join(';'),
@@ -132,7 +144,6 @@ export default function ProdutividadePage() {
     setLoading(false)
   }, [userId, deptId, dateFrom, dateTo])
 
-  // Carrega automaticamente só na primeira vez (sem filtros)
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleExpand(key: string) {
@@ -143,20 +154,17 @@ export default function ProdutividadePage() {
     })
   }
 
-  // Filtrar dados por métrica
   const dadosFiltrados = metrica
     ? data.map(op => ({ ...op, items: op.items.filter((i: any) => i.metrica === metrica) }))
           .filter(op => op.items.length > 0)
     : data
 
-  // Recalcular totalItens por operador considerando filtro de laço
   const dadosComFiltroLaco = dadosFiltrados.map(op => {
-    // Filtrar itens por bowType E produto no frontend
     const produtoLower = produto.toLowerCase().trim()
 
     const itensFiltrados = op.items.filter((i: any) => {
-      const matchBow = !bowType || i.metrica !== 'itens' || (i as any).bowType === bowType
-      const matchProd = !produtoLower || (i as any).productName?.toLowerCase().includes(produtoLower)
+      const matchBow  = !bowType || i.metrica !== 'itens' || i.bowType === bowType
+      const matchProd = !produtoLower || i.productName?.toLowerCase().includes(produtoLower)
       return matchBow && matchProd
     })
 
@@ -164,12 +172,16 @@ export default function ProdutividadePage() {
       .filter((i: any) => i.metrica === 'itens')
       .reduce((s: number, i: any) => s + (i.contabilizado ?? 0), 0)
 
-    return { ...op, totalItensFiltrado, itensFiltrados }
+    const totalValorFiltrado = itensFiltrados
+      .reduce((s: number, i: any) => s + (i.valor ?? 0), 0)
+
+    return { ...op, totalItensFiltrado, totalValorFiltrado, itensFiltrados }
   }).filter(op => op.itensFiltrados.length > 0)
 
   const totalItensGeral   = dadosComFiltroLaco.reduce((s, d) => s + (d.totalItensFiltrado ?? d.totalItens), 0)
   const totalPedidosGeral = dadosComFiltroLaco.reduce((s, d) => s + d.totalPedidos, 0)
   const totalTarefasGeral = dadosComFiltroLaco.reduce((s, d) => s + d.totalTarefas, 0)
+  const totalValorGeral   = dadosComFiltroLaco.reduce((s, d) => s + (d.totalValorFiltrado ?? d.totalValor), 0)
 
   const inputClass = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
 
@@ -260,7 +272,7 @@ export default function ProdutividadePage() {
 
       {/* CARDS RESUMO GERAL */}
       {!loading && data.length > 0 && (
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-5 gap-4 mb-6">
           <div className="bg-white rounded-xl border border-blue-100 p-5">
             <p className="text-sm text-gray-500 mb-1">Itens produzidos</p>
             <p className="text-3xl font-bold text-blue-600">{totalItensGeral}</p>
@@ -287,6 +299,12 @@ export default function ProdutividadePage() {
             <p className="text-3xl font-bold text-gray-700">{data.filter(d => d.userId).length}</p>
             <p className="text-xs text-gray-400 mt-1">com tarefas no período</p>
           </div>
+          {/* ── NOVO: Total a pagar ── */}
+          <div className="bg-white rounded-xl border border-emerald-200 p-5">
+            <p className="text-sm text-gray-500 mb-1">Total a pagar</p>
+            <p className="text-2xl font-bold text-emerald-600">{formatBRL(totalValorGeral)}</p>
+            <p className="text-xs text-gray-400 mt-1">prod. com laço R$0,30 · sem laço R$0,20</p>
+          </div>
         </div>
       )}
 
@@ -306,6 +324,7 @@ export default function ProdutividadePage() {
             const key        = op.userId ?? 'sem_responsavel'
             const isExpanded = expanded.has(key)
             const depts      = Object.values(op.departments)
+            const valorOp    = (op as any).totalValorFiltrado ?? op.totalValor
 
             return (
               <div key={key} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -342,6 +361,13 @@ export default function ProdutividadePage() {
                         <div>
                           <p className="text-2xl font-bold text-purple-600">{op.totalPedidos}</p>
                           <p className="text-xs text-gray-400">pedidos</p>
+                        </div>
+                      )}
+                      {/* ── NOVO: valor a pagar por operador ── */}
+                      {valorOp > 0 && (
+                        <div className="border-l border-gray-100 pl-4">
+                          <p className="text-2xl font-bold text-emerald-600">{formatBRL(valorOp)}</p>
+                          <p className="text-xs text-gray-400">a pagar</p>
                         </div>
                       )}
                     </div>
@@ -381,6 +407,7 @@ export default function ProdutividadePage() {
                           <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500">Métrica</th>
                           <th className="px-4 py-2 text-left text-xs font-semibold text-purple-600">Tipo Laço</th>
                           {!bowType && <th className="px-4 py-2 text-center text-xs font-semibold text-purple-600">Qtd Laços</th>}
+                          <th className="px-4 py-2 text-right text-xs font-semibold text-emerald-600">Valor</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -391,8 +418,8 @@ export default function ProdutividadePage() {
                             </td>
                             <td className="px-4 py-2 text-xs text-gray-600">{item.department}</td>
                             <td className="px-4 py-2 text-xs font-mono text-gray-400">{item.externalId || '—'}</td>
-                            <td className="px-4 py-2 text-xs text-gray-500 max-w-xs truncate" title={(item as any).productName ?? ''}>
-                              {(item as any).productName ? (item as any).productName.split('|')[0].trim() : '—'}
+                            <td className="px-4 py-2 text-xs text-gray-500 max-w-xs truncate" title={item.productName ?? ''}>
+                              {item.productName ? item.productName.split('|')[0].trim() : '—'}
                             </td>
                             <td className="px-4 py-2 text-xs text-gray-700">{item.recipientName}</td>
                             <td className="px-4 py-2 text-center font-bold text-sm">
@@ -410,19 +437,34 @@ export default function ProdutividadePage() {
                               </span>
                             </td>
                             <td className="px-4 py-2 text-xs font-medium text-purple-700">
-                              {(item as any).bowType === 'LUXURY' ? 'Luxo'
-                                : (item as any).bowType === 'SIMPLE' ? 'Simples'
-                                : (item as any).bowType === 'NONE' ? 'Sem laço'
+                              {item.bowType === 'LUXURY' ? 'Luxo'
+                                : item.bowType === 'SIMPLE' ? 'Simples'
+                                : item.bowType === 'NONE' ? 'Sem laço'
                                 : '—'}
                             </td>
                             {!bowType && (
                               <td className="px-4 py-2 text-center font-bold text-purple-600 text-sm">
-                                {(item as any).bowQty ?? '—'}
+                                {item.bowQty ?? '—'}
                               </td>
                             )}
+                            {/* ── NOVO: valor por linha ── */}
+                            <td className="px-4 py-2 text-right text-xs font-semibold text-emerald-600">
+                              {item.valor > 0 ? formatBRL(item.valor) : '—'}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
+                      {/* ── NOVO: subtotal do operador na tabela ── */}
+                      <tfoot>
+                        <tr className="bg-emerald-50 border-t-2 border-emerald-200">
+                          <td colSpan={!bowType ? 9 : 8} className="px-4 py-2 text-xs font-semibold text-emerald-700 text-right">
+                            Total a pagar:
+                          </td>
+                          <td className="px-4 py-2 text-right font-bold text-emerald-700">
+                            {formatBRL(valorOp)}
+                          </td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                 )}
