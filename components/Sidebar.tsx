@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import {
   Home, LayoutDashboard, Package, Palette, Archive, Printer,
   Factory, Scissors, CheckSquare, Send, Users, UserCheck,
-  Paintbrush, BarChart2, LogOut, Menu, X, ShoppingBag
+  Paintbrush, BarChart2, LogOut, Menu, X, ShoppingBag, ClipboardList
 } from 'lucide-react'
 
 const links = [
@@ -19,6 +19,7 @@ const setores = [
   { href: '/setores/dep_arte',      label: 'Arte',                 icon: Palette,    depId: 'dep_arte'      },
   { href: '/setores/dep_arquivo',   label: 'Arquivo de Impressão', icon: Archive,    depId: 'dep_arquivo'   },
   { href: '/setores/dep_impressao', label: 'Impressão',            icon: Printer,    depId: 'dep_impressao' },
+  { href: '/setores/dep_separacao', label: 'Separação de Demanda', icon: ClipboardList, depId: 'dep_separacao' },
   { href: '/setores/dep_prod_ext',  label: 'Produção Externa',     icon: Factory,    depId: 'dep_prod_ext'  },
   { href: '/setores/dep_prod_int',  label: 'Produção Interna',     icon: Scissors,   depId: 'dep_prod_int'  },
   { href: '/setores/dep_pronta',    label: 'Pronta Entrega',       icon: CheckSquare,depId: 'dep_pronta'    },
@@ -30,6 +31,8 @@ const adminLinks = [
   { href: '/admin/responsaveis-producao', label: 'Resp. Producao', icon: UserCheck  },
   { href: '/admin/temas',                 label: 'Temas e Cores',  icon: Paintbrush },
   { href: '/admin/produtividade',         label: 'Produtividade',  icon: BarChart2  },
+  { href: '/admin/demandas',             label: 'Demandas',       icon: ClipboardList },
+
 ]
 
 export default function Sidebar() {

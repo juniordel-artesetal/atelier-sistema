@@ -145,15 +145,24 @@ export async function POST(
           }, { status: 400 })
         }
 
-        const stepMap: Record<string, string> = {
-          EXTERNA:        'step_prod_ext',
-          INTERNA:        'step_prod_int',
-          PRONTA_ENTREGA: 'step_pronta',
+        // Produção Externa vai para Separação de Demanda primeiro
+        // Interna e Pronta Entrega vão direto para o setor de produção
+        if (productionType === 'EXTERNA') {
+          nextStep = await prisma.workflowStep.findUnique({ where: { id: 'step_separacao' } })
+        } else {
+          const stepMap: Record<string, string> = {
+            INTERNA:        'step_prod_int',
+            PRONTA_ENTREGA: 'step_pronta',
+          }
+          const targetId = stepMap[productionType]
+          if (targetId) {
+            nextStep = await prisma.workflowStep.findUnique({ where: { id: targetId } })
+          }
         }
-        const targetId = stepMap[productionType]
-        if (targetId) {
-          nextStep = await prisma.workflowStep.findUnique({ where: { id: targetId } })
-        }
+
+      } else if (currentStep.id === 'step_separacao') {
+        // Separação de Demanda → Produção Externa
+        nextStep = await prisma.workflowStep.findUnique({ where: { id: 'step_prod_ext' } })
 
       } else if (['step_prod_ext', 'step_prod_int', 'step_pronta'].includes(currentStep.id)) {
         nextStep = await prisma.workflowStep.findUnique({ where: { id: 'step_expedicao' } })
@@ -166,7 +175,7 @@ export async function POST(
           where: {
             workspaceId: currentStep.workspaceId,
             sortOrder: { gt: currentStep.sortOrder },
-            id: { notIn: ['step_prod_ext', 'step_prod_int', 'step_pronta'] }
+            id: { notIn: ['step_prod_ext', 'step_prod_int', 'step_pronta', 'step_separacao'] }
           },
           orderBy: { sortOrder: 'asc' }
         })

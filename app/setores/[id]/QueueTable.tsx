@@ -28,6 +28,9 @@ interface WorkItem {
   sectorNotes: string | null
   createdAt: string
   dueDate: string | null
+  checkLacos: boolean | null
+  checkTags: boolean | null
+  checkAdesivos: boolean | null
   productionResponsibleId: string | null
   productionResponsible: ProductionResponsible | null
   artResponsibleId: string | null
@@ -156,7 +159,8 @@ export default function QueueTable({
 }) {
   const isArteSector = departmentId === 'dep_arte'
   // ── NOVO: identifica o setor de Impressão ────────────────────────────────
-  const isImpressaoSector = departmentId === 'dep_impressao'
+  const isImpressaoSector  = departmentId === 'dep_impressao'
+  const isSeparacaoSector  = departmentId === 'dep_separacao'
   const router = useRouter()
   const { data: session } = useSession()
   const role = session?.user?.role
@@ -180,6 +184,9 @@ export default function QueueTable({
   const [savingProdRespId, setSavingProdRespId] = useState<string | null>(null)
   const [localArtResp, setLocalArtResp]         = useState<Record<string, string | null>>({})
   const [savingArtRespId, setSavingArtRespId]   = useState<string | null>(null)
+  // Checklist estado local para setor Separação
+  const [localChecklist, setLocalChecklist] = useState<Record<string, { lacos: boolean; tags: boolean; adesivos: boolean }>>({})
+  const [savingChecklistId, setSavingChecklistId] = useState<string | null>(null)
 
   async function handleSaveProdResp(itemId: string) {
     const newVal = localProdResp[itemId] !== undefined ? localProdResp[itemId] : null
@@ -193,6 +200,21 @@ export default function QueueTable({
       router.refresh()
     } finally {
       setSavingProdRespId(null)
+    }
+  }
+
+  async function handleSaveChecklist(itemId: string) {
+    setSavingChecklistId(itemId)
+    const cl = localChecklist[itemId] ?? { lacos: false, tags: false, adesivos: false }
+    try {
+      await fetch(`/api/work-items/${itemId}/checklist`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkLacos: cl.lacos, checkTags: cl.tags, checkAdesivos: cl.adesivos }),
+      })
+      router.refresh()
+    } finally {
+      setSavingChecklistId(null)
     }
   }
 
@@ -473,6 +495,60 @@ export default function QueueTable({
     .reduce((sum, wi) => sum + wi.order.items
       .reduce((s: number, oi: any) => s + (oi.appliqueQty ?? 0), 0), 0)
 
+
+  // ── Agrupamento para setor Separação de Demanda ────────────────────────────
+  const BOW_TYPE_LABEL_SEP: Record<string, string> = { SIMPLE: 'Simples', LUXURY: 'Luxo' }
+  const groupedSeparacao = isSeparacaoSector
+    ? Object.values(
+        filtered.reduce((acc, item) => {
+          const respId   = item.productionResponsibleId ?? 'sem_responsavel'
+          const respName = item.productionResponsible?.name ?? 'Sem responsável'
+          if (!acc[respId]) {
+            acc[respId] = { respId, respName, items: [], bowSummary: {} as Record<string, { cor: string; tipo: string; quantidade: number }>, totalItems: 0 }
+          }
+          acc[respId].items.push(item)
+          // Soma laços de todos os itens do pedido
+          for (const oi of item.order.items) {
+            if (!oi.bowColor || !oi.bowQty || oi.bowType === 'NONE') continue
+            const key = `${oi.bowColor}__${oi.bowType}`
+            if (!acc[respId].bowSummary[key]) acc[respId].bowSummary[key] = { cor: oi.bowColor, tipo: oi.bowType as string, quantidade: 0 }
+            acc[respId].bowSummary[key].quantidade += oi.bowQty
+          }
+          acc[respId].totalItems += (item.order.items[0]?.totalItems ?? 0)
+          return acc
+        }, {} as Record<string, any>)
+      ).map(g => ({ ...g, bowSummaryList: Object.values(g.bowSummary) }))
+    : []
+
+  // Checklist local por grupo (respId)
+  const [groupChecklist, setGroupChecklist] = useState<Record<string, { lacos: boolean; tags: boolean; adesivos: boolean }>>({})
+  const [completingGroup, setCompletingGroup] = useState<string | null>(null)
+
+  async function handleCompleteGroup(respId: string, itemIds: string[]) {
+    setCompletingGroup(respId)
+    try {
+      // Salva checklist em todos os workItems do grupo
+      const cl = groupChecklist[respId] ?? { lacos: false, tags: false, adesivos: false }
+      await Promise.all(itemIds.map(wid =>
+        fetch(`/api/work-items/${wid}/checklist`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ checkLacos: cl.lacos, checkTags: cl.tags, checkAdesivos: cl.adesivos }),
+        })
+      ))
+      // Avança todos para Produção Externa
+      await Promise.all(itemIds.map(wid =>
+        fetch(`/api/work-items/${wid}/transition`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'advance' }),
+        })
+      ))
+      router.refresh()
+    } finally {
+      setCompletingGroup(null)
+    }
+  }
 
   async function handleAssign(workItemId: string) {
     setLoadingId(workItemId)
@@ -885,7 +961,109 @@ export default function QueueTable({
           </div>
         )}
 
-        {filtered.map(item => {
+        {/* ── VIEW ESPECIAL: Separação de Demanda (agrupado por responsável) ── */}
+        {isSeparacaoSector && groupedSeparacao.map((group: any) => {
+          const cl = groupChecklist[group.respId] ?? { lacos: false, tags: false, adesivos: false }
+          const allChecked = cl.lacos && cl.tags && cl.adesivos
+          const itemIds = group.items.map((i: any) => i.id)
+          return (
+            <div key={group.respId} className="bg-white rounded-xl border border-orange-100 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  {/* Header responsável */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                      {group.respName[0]}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800">{group.respName}</p>
+                      <p className="text-xs text-gray-400">{group.items.length} pedidos · {group.totalItems} itens no total</p>
+                    </div>
+                  </div>
+
+                  {/* Resumo de laços */}
+                  {group.bowSummaryList.length > 0 && (
+                    <div className="flex flex-wrap gap-3 mb-3 ml-12">
+                      {group.bowSummaryList.map((b: any) => {
+                        const hexColor = BOW_COLOR_MAP[b.cor?.toUpperCase().trim()] ?? '#e5e7eb'
+                        return (
+                          <span key={`${b.cor}__${b.tipo}`} className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-xl bg-white border-2 border-pink-100 text-gray-800 font-semibold shadow-sm">
+                            <span
+                              className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0"
+                              style={{ backgroundColor: hexColor }}
+                            />
+                            {b.cor} {BOW_TYPE_LABEL_SEP[b.tipo] ?? b.tipo}:
+                            <span className="text-pink-700 font-bold text-base">{b.quantidade}</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Lista de pedidos */}
+                  <div className="ml-12 mb-3 space-y-1">
+                    {group.items.map((item: any) => (
+                      <div key={item.id} className="flex items-center gap-2 text-xs text-gray-600">
+                        <span className="font-medium">{item.order.recipientName}</span>
+                        {item.order.externalId && <span className="text-gray-400 font-mono">{item.order.externalId}</span>}
+                        {item.order.items[0]?.totalItems != null && (
+                          <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">{item.order.items[0].totalItems} itens</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Checklist */}
+                  {canManage && (
+                    <div className="ml-12">
+                      <p className="text-xs font-semibold text-orange-600 mb-1.5">Checklist de separação:</p>
+                      <div className="flex flex-col gap-1.5 mb-2">
+                        {[
+                          { key: 'lacos',    label: 'Separar laços' },
+                          { key: 'tags',     label: 'Separar tags' },
+                          { key: 'adesivos', label: 'Separar adesivos do cofre' },
+                        ].map(chk => {
+                          const val = (cl as any)[chk.key]
+                          return (
+                            <label key={chk.key} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={val}
+                                onChange={e => setGroupChecklist(prev => ({
+                                  ...prev,
+                                  [group.respId]: { ...cl, [chk.key]: e.target.checked }
+                                }))}
+                                className="accent-orange-500 w-4 h-4"
+                              />
+                              <span className={`text-sm ${val ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                                {chk.label}
+                              </span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Botão concluir grupo */}
+                {canManage && (
+                  <button
+                    onClick={() => handleCompleteGroup(group.respId, itemIds)}
+                    disabled={completingGroup === group.respId || !allChecked}
+                    title={!allChecked ? 'Conclua o checklist primeiro' : `Enviar ${group.items.length} pedido(s) para Produção Externa`}
+                    className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50 flex-shrink-0"
+                  >
+                    {completingGroup === group.respId ? 'Enviando...' : 'Concluir'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+
+        {/* ── VIEW NORMAL: todos os outros setores ── */}
+        {!isSeparacaoSector && filtered.map(item => {
           const oi = item.order.items[0]
           return (
             <div key={item.id} className={`bg-white rounded-xl border p-4 transition-colors ${selectedIds.has(item.id) ? 'border-purple-300 bg-purple-50' : 'border-gray-100'}`}>
@@ -1121,6 +1299,50 @@ export default function QueueTable({
                     <p className="text-xs mt-1.5 px-2 py-1 bg-red-50 text-red-600 rounded-lg inline-block">
                       {item.sectorNotes.replace('[DEVOLVIDO] ', '').replace('[DEVOLVIDO]', 'Sem motivo informado')}
                     </p>
+                  )}
+
+                  {/* Checklist — só no setor Separação de Demanda, só DELEGADOR/ADMIN */}
+                  {isSeparacaoSector && canManage && (
+                    <div className="mt-2 ml-0">
+                      <p className="text-xs font-semibold text-orange-600 mb-1.5">Checklist de separação:</p>
+                      <div className="flex flex-col gap-1.5">
+                        {[
+                          { key: 'lacos',    label: 'Separar laços' },
+                          { key: 'tags',     label: 'Separar tags' },
+                          { key: 'adesivos', label: 'Separar adesivos do cofre' },
+                        ].map(chk => {
+                          const cl = localChecklist[item.id] ?? {
+                            lacos:    item.checkLacos    ?? false,
+                            tags:     item.checkTags     ?? false,
+                            adesivos: item.checkAdesivos ?? false,
+                          }
+                          const val = (cl as any)[chk.key]
+                          return (
+                            <label key={chk.key} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={val}
+                                onChange={e => setLocalChecklist(prev => ({
+                                  ...prev,
+                                  [item.id]: { ...cl, [chk.key]: e.target.checked }
+                                }))}
+                                className="accent-orange-500 w-4 h-4"
+                              />
+                              <span className={`text-sm ${val ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                                {chk.label}
+                              </span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                      <button
+                        onClick={() => handleSaveChecklist(item.id)}
+                        disabled={savingChecklistId === item.id}
+                        className="mt-2 text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-lg disabled:opacity-50"
+                      >
+                        {savingChecklistId === item.id ? '...' : 'Salvar checklist'}
+                      </button>
+                    </div>
                   )}
 
                   {/* Responsável pela produção */}

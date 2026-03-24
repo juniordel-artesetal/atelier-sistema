@@ -62,9 +62,12 @@ export default async function SetorPage({ params }: { params: Promise<{ id: stri
   // Converter datas para string
   const workItems = rawWorkItems.map(wi => ({
     ...wi,
-    createdAt: wi.createdAt.toISOString(),
-    doneAt:    wi.doneAt    ? wi.doneAt.toISOString()    : null,
-    dueDate:   wi.dueDate   ? wi.dueDate.toISOString()   : null,
+    createdAt:     wi.createdAt.toISOString(),
+    doneAt:        wi.doneAt    ? wi.doneAt.toISOString()    : null,
+    dueDate:       wi.dueDate   ? wi.dueDate.toISOString()   : null,
+    checkLacos:    (wi as any).checkLacos    ?? false,
+    checkTags:     (wi as any).checkTags     ?? false,
+    checkAdesivos: (wi as any).checkAdesivos ?? false,
     order: {
       ...wi.order,
       dueDate:   wi.order.dueDate   ? wi.order.dueDate.toISOString()   : null,
