@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
     const grouped: Record<string, {
       responsavel: string
       totalLacos: number
+      totalValor: number
       porCor: Record<string, { cor: string, tipo: string, quantidade: number }>
       entries: any[]
     }> = {}
