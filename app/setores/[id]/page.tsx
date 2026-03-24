@@ -75,6 +75,16 @@ export default async function SetorPage({ params }: { params: Promise<{ id: stri
     }
   }))
 
+  // Busca estoque de laços para alertas no setor Separação
+  const bowStock = id === 'dep_separacao'
+    ? await prisma.bowStock.findMany({ where: { workspaceId: 'ws_atelier' } })
+    : []
+
+  const bowStockMap = bowStock.reduce((acc: Record<string, number>, s) => {
+    acc[`${s.bowColor.trim().toUpperCase()}__${s.bowType}`] = s.quantity
+    return acc
+  }, {})
+
   return (
     <div>
       <div className="mb-6">
@@ -86,6 +96,7 @@ export default async function SetorPage({ params }: { params: Promise<{ id: stri
         operadores={operadores}
         departmentId={id}
         responsaveisProducao={responsaveisProducao}
+        bowStockMap={bowStockMap}
       />
     </div>
   )

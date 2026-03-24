@@ -18,6 +18,7 @@ interface BowEntry {
   quantity: number
   userName: string
   notes: string | null
+  responsavel: string | null
   createdAt: string
 }
 
@@ -34,6 +35,7 @@ const LOW_THRESHOLD = 40
 export default function EstoqueLacosPage() {
   const { data: session } = useSession()
   const role      = session?.user?.role
+  const isAdmin   = role === 'ADMIN'
   const canManage = role === 'ADMIN' || role === 'DELEGADOR'
 
   const [stocks, setStocks]   = useState<BowStock[]>([])
@@ -48,6 +50,15 @@ export default function EstoqueLacosPage() {
   const [saving, setSaving]   = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError]     = useState('')
+
+  // Ajuste manual de estoque
+  const [adjustingId, setAdjustingId]     = useState<string | null>(null)
+  const [adjustQty, setAdjustQty]         = useState<string>('')
+  const [adjustMotivo, setAdjustMotivo]   = useState<string>('')
+  const [savingAdjust, setSavingAdjust]   = useState(false)
+
+  // Exclusão de lançamento
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null)
 
   async function loadData() {
     setLoading(true)
@@ -104,6 +115,43 @@ export default function EstoqueLacosPage() {
     }
   }
 
+  async function handleAdjust(stockId: string) {
+    if (!adjustQty) return
+    setSavingAdjust(true)
+    try {
+      const res = await fetch(`/api/lacos/estoque/${stockId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: Number(adjustQty), motivo: adjustMotivo }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setAdjustingId(null)
+      setAdjustQty('')
+      setAdjustMotivo('')
+      loadData()
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setSavingAdjust(false)
+    }
+  }
+
+  async function handleDeleteEntry(entryId: string) {
+    if (!confirm('Excluir este lançamento? O estoque será ajustado automaticamente.')) return
+    setDeletingEntryId(entryId)
+    try {
+      const res = await fetch(`/api/lacos/entradas/${entryId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      loadData()
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setDeletingEntryId(null)
+    }
+  }
+
   const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
 
   const lowStocks  = stocks.filter(s => s.quantity <= LOW_THRESHOLD)
@@ -117,6 +165,78 @@ export default function EstoqueLacosPage() {
            dt.getUTCFullYear() + ' ' +
            dt.getUTCHours().toString().padStart(2,'0') + ':' +
            dt.getUTCMinutes().toString().padStart(2,'0')
+  }
+
+  function StockCard({ s }: { s: BowStock }) {
+    const isLow = s.quantity <= LOW_THRESHOLD
+    const isAdjusting = adjustingId === s.id
+
+    return (
+      <div className={`bg-white rounded-xl border p-4 ${isLow ? 'border-red-200' : 'border-gray-100'}`}>
+        <div className="flex items-center justify-between mb-2">
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${BOW_TYPE_COLOR[s.bowType]}`}>
+            {BOW_TYPE_LABEL[s.bowType]}
+          </span>
+          <span className={`text-xs font-medium ${isLow ? 'text-red-400' : 'text-green-500'}`}>
+            {isLow ? 'Baixo' : 'OK'}
+          </span>
+        </div>
+        <p className="font-semibold text-gray-800 text-sm">{s.bowColor}</p>
+
+        {isAdjusting ? (
+          <div className="mt-2 space-y-2">
+            <input
+              type="number"
+              min={0}
+              value={adjustQty}
+              onChange={e => setAdjustQty(e.target.value)}
+              placeholder="Nova quantidade"
+              className="w-full border border-purple-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 font-bold"
+              autoFocus
+            />
+            <input
+              type="text"
+              value={adjustMotivo}
+              onChange={e => setAdjustMotivo(e.target.value)}
+              placeholder="Motivo (opcional)"
+              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleAdjust(s.id)}
+                disabled={savingAdjust || !adjustQty}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold py-1.5 rounded-lg disabled:opacity-50"
+              >
+                {savingAdjust ? '...' : 'Salvar'}
+              </button>
+              <button
+                onClick={() => { setAdjustingId(null); setAdjustQty(''); setAdjustMotivo('') }}
+                className="flex-1 border border-gray-200 text-gray-500 text-xs py-1.5 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className={`text-2xl font-bold mt-1 ${isLow ? 'text-red-500' : 'text-blue-600'}`}>
+              {s.quantity}
+            </p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-xs text-gray-400">unidades</p>
+              {isAdmin && (
+                <button
+                  onClick={() => { setAdjustingId(s.id); setAdjustQty(String(s.quantity)); setAdjustMotivo('') }}
+                  className="text-xs text-purple-500 hover:underline font-medium"
+                >
+                  Ajustar
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -156,7 +276,7 @@ export default function EstoqueLacosPage() {
         {[
           { key: 'estoque',   label: 'Estoque Atual' },
           { key: 'lancar',    label: 'Lançar Produção' },
-          { key: 'historico', label: 'Histórico', admin: false },
+          { key: 'historico', label: 'Histórico' },
         ].map(t => (
           <button
             key={t.key}
@@ -184,46 +304,22 @@ export default function EstoqueLacosPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Estoque baixo */}
+              {isAdmin && (
+                <p className="text-xs text-gray-400 italic">Clique em "Ajustar" para corrigir a quantidade manualmente. O ajuste será registrado no histórico.</p>
+              )}
               {lowStocks.length > 0 && (
                 <div>
                   <h2 className="text-sm font-semibold text-red-500 uppercase mb-2">Estoque Baixo</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {lowStocks.map(s => (
-                      <div key={s.id} className="bg-white rounded-xl border border-red-200 p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${BOW_TYPE_COLOR[s.bowType]}`}>
-                            {BOW_TYPE_LABEL[s.bowType]}
-                          </span>
-                          <span className="text-xs text-red-400 font-medium">Baixo</span>
-                        </div>
-                        <p className="font-semibold text-gray-800 text-sm">{s.bowColor}</p>
-                        <p className="text-2xl font-bold text-red-500 mt-1">{s.quantity}</p>
-                        <p className="text-xs text-gray-400">unidades</p>
-                      </div>
-                    ))}
+                    {lowStocks.map(s => <StockCard key={s.id} s={s} />)}
                   </div>
                 </div>
               )}
-
-              {/* Estoque normal */}
               {goodStocks.length > 0 && (
                 <div>
                   <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">Estoque Normal</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {goodStocks.map(s => (
-                      <div key={s.id} className="bg-white rounded-xl border border-gray-100 p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${BOW_TYPE_COLOR[s.bowType]}`}>
-                            {BOW_TYPE_LABEL[s.bowType]}
-                          </span>
-                          <span className="text-xs text-green-500 font-medium">OK</span>
-                        </div>
-                        <p className="font-semibold text-gray-800 text-sm">{s.bowColor}</p>
-                        <p className="text-2xl font-bold text-blue-600 mt-1">{s.quantity}</p>
-                        <p className="text-xs text-gray-400">unidades</p>
-                      </div>
-                    ))}
+                    {goodStocks.map(s => <StockCard key={s.id} s={s} />)}
                   </div>
                 </div>
               )}
@@ -355,7 +451,7 @@ export default function EstoqueLacosPage() {
               <label className="block text-xs font-medium text-gray-500 mb-1">Resp. Producao</label>
               <select value={filterHist.responsavel} onChange={e => setFilterHist(p => ({ ...p, responsavel: e.target.value }))} className={inputClass}>
                 <option value="">Todos</option>
-                {[...new Set(entries.map(e => (e as any).responsavel).filter(Boolean))].sort().map((n: string) => (
+                {[...new Set(entries.map(e => e.responsavel).filter(Boolean))].sort().map((n: any) => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>
@@ -396,7 +492,7 @@ export default function EstoqueLacosPage() {
           {(() => {
             const filteredEntries = entries.filter(e => {
               if (filterHist.operador && e.userName !== filterHist.operador) return false
-              if (filterHist.responsavel && (e as any).responsavel !== filterHist.responsavel) return false
+              if (filterHist.responsavel && e.responsavel !== filterHist.responsavel) return false
               if (filterHist.bowColor && e.bowColor !== filterHist.bowColor) return false
               if (filterHist.bowType && e.bowType !== filterHist.bowType) return false
               if (filterHist.dataInicio) {
@@ -411,16 +507,14 @@ export default function EstoqueLacosPage() {
             })
             const totalFiltrado = filteredEntries.reduce((s, e) => s + e.quantity, 0)
 
-            // Totais por responsável
             const totaisPorResp: Record<string, number> = {}
             filteredEntries.forEach(e => {
-              const key = (e as any).responsavel || 'Sem responsavel'
+              const key = e.responsavel || 'Sem responsavel'
               totaisPorResp[key] = (totaisPorResp[key] || 0) + e.quantity
             })
 
             return (
               <div className="space-y-4">
-                {/* Cards de totais */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
                     <p className="text-xs text-purple-500 font-medium">Total filtrado</p>
@@ -435,6 +529,10 @@ export default function EstoqueLacosPage() {
                     </div>
                   ))}
                 </div>
+
+                {isAdmin && (
+                  <p className="text-xs text-gray-400 italic">Administradores podem excluir lançamentos para ajustes pós-auditoria. O estoque será atualizado automaticamente.</p>
+                )}
 
                 {loading ? (
                   <div className="bg-white rounded-xl border border-gray-100 p-12 text-center text-gray-400">Carregando...</div>
@@ -452,24 +550,48 @@ export default function EstoqueLacosPage() {
                           <th className="px-4 py-3 text-left font-semibold text-gray-600">Tipo</th>
                           <th className="px-4 py-3 text-center font-semibold text-gray-600">Qtd</th>
                           <th className="px-4 py-3 text-left font-semibold text-gray-600">Obs</th>
+                          {isAdmin && <th className="px-4 py-3 text-center font-semibold text-gray-600">Ação</th>}
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredEntries.map((e, i) => (
-                          <tr key={e.id} className={"border-b border-gray-50 " + (i % 2 === 0 ? '' : 'bg-gray-50/50')}>
-                            <td className="px-4 py-3 text-xs text-gray-500">{formatDate(e.createdAt)}</td>
-                            <td className="px-4 py-3 font-medium text-gray-700">{e.userName}</td>
-                            <td className="px-4 py-3 text-gray-500 text-xs">{(e as any).responsavel || '—'}</td>
-                            <td className="px-4 py-3 text-gray-600">{e.bowColor}</td>
-                            <td className="px-4 py-3">
-                              <span className={"text-xs px-2 py-0.5 rounded-full font-medium " + (BOW_TYPE_COLOR[e.bowType] || '')}>
-                                {BOW_TYPE_LABEL[e.bowType]}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center font-bold text-blue-600">{e.quantity}</td>
-                            <td className="px-4 py-3 text-xs text-gray-400">{e.notes || '—'}</td>
-                          </tr>
-                        ))}
+                        {filteredEntries.map((e, i) => {
+                          const isAjuste = e.notes?.includes('[AJUSTE MANUAL]')
+                          return (
+                            <tr key={e.id} className={"border-b border-gray-50 " + (i % 2 === 0 ? '' : 'bg-gray-50/50')}>
+                              <td className="px-4 py-3 text-xs text-gray-500">{formatDate(e.createdAt)}</td>
+                              <td className="px-4 py-3 font-medium text-gray-700">{e.userName}</td>
+                              <td className="px-4 py-3 text-gray-500 text-xs">{e.responsavel || '—'}</td>
+                              <td className="px-4 py-3 text-gray-600">{e.bowColor}</td>
+                              <td className="px-4 py-3">
+                                <span className={"text-xs px-2 py-0.5 rounded-full font-medium " + (BOW_TYPE_COLOR[e.bowType] || '')}>
+                                  {BOW_TYPE_LABEL[e.bowType]}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-center font-bold text-blue-600">{e.quantity}</td>
+                              <td className="px-4 py-3 text-xs text-gray-400">
+                                {isAjuste
+                                  ? <span className="text-purple-500 font-medium">{e.notes}</span>
+                                  : e.notes || '—'
+                                }
+                              </td>
+                              {isAdmin && (
+                                <td className="px-4 py-3 text-center">
+                                  {isAjuste ? (
+                                    <span className="text-xs text-gray-300">—</span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleDeleteEntry(e.id)}
+                                      disabled={deletingEntryId === e.id}
+                                      className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50"
+                                    >
+                                      {deletingEntryId === e.id ? '...' : 'Excluir'}
+                                    </button>
+                                  )}
+                                </td>
+                              )}
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>

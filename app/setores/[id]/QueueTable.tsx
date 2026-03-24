@@ -151,11 +151,13 @@ export default function QueueTable({
   operadores,
   departmentId,
   responsaveisProducao = [],
+  bowStockMap = {},
 }: {
   workItems: WorkItem[]
   operadores: Operador[]
   departmentId: string
   responsaveisProducao?: { id: string; name: string }[]
+  bowStockMap?: Record<string, number>
 }) {
   const isArteSector = departmentId === 'dep_arte'
   // ── NOVO: identifica o setor de Impressão ────────────────────────────────
@@ -985,15 +987,42 @@ export default function QueueTable({
                   {group.bowSummaryList.length > 0 && (
                     <div className="flex flex-wrap gap-3 mb-3 ml-12">
                       {group.bowSummaryList.map((b: any) => {
-                        const hexColor = BOW_COLOR_MAP[b.cor?.toUpperCase().trim()] ?? '#e5e7eb'
+                        const hexColor    = BOW_COLOR_MAP[b.cor?.toUpperCase().trim()] ?? '#e5e7eb'
+                        const corUpper    = b.cor?.toUpperCase().trim() ?? ''
+                        const tipoUpper   = b.tipo?.toUpperCase().trim() ?? ''
+                        const estoqueAtual = bowStockMap[`${corUpper}__${tipoUpper}`]
+                          ?? bowStockMap[`${corUpper}__SIMPLE`]
+                          ?? bowStockMap[`${corUpper}__LUXURY`]
+                          ?? Object.entries(bowStockMap).find(([k]) => k.startsWith(corUpper + '__'))?.[1]
+                          ?? 0
+                        // Saldo após usar os laços desta demanda
+                        const saldo        = estoqueAtual - b.quantidade
+                        const semEstoque   = saldo < 0
+                        const baixo        = !semEstoque && estoqueAtual <= 40
                         return (
-                          <span key={`${b.cor}__${b.tipo}`} className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-xl bg-white border-2 border-pink-100 text-gray-800 font-semibold shadow-sm">
+                          <span key={`${b.cor}__${b.tipo}`} className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-xl font-semibold shadow-sm border-2 ${
+                            semEstoque ? 'bg-red-50 border-red-300 text-red-800'
+                            : baixo    ? 'bg-orange-50 border-orange-300 text-orange-800'
+                            :            'bg-white border-pink-100 text-gray-800'
+                          }`}>
                             <span
                               className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0"
                               style={{ backgroundColor: hexColor }}
                             />
                             {b.cor} {BOW_TYPE_LABEL_SEP[b.tipo] ?? b.tipo}:
-                            <span className="text-pink-700 font-bold text-base">{b.quantidade}</span>
+                            <span className={`font-bold text-base ${semEstoque ? 'text-red-700' : baixo ? 'text-orange-700' : 'text-pink-700'}`}>
+                              {b.quantidade}
+                            </span>
+                            {semEstoque && (
+                              <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">
+                                ⚠ Saldo: {saldo} laços
+                              </span>
+                            )}
+                            {baixo && (
+                              <span className="text-xs font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
+                                ⚠ Estoque baixo ({estoqueAtual} disponível)
+                              </span>
+                            )}
                           </span>
                         )
                       })}

@@ -208,9 +208,14 @@ export async function POST(
         })
 
         // ── DESCONTO DE ESTOQUE ────────────────────────────────────
-        // Pedidos NÃO pronta entrega → desconta ao SAIR da Impressão
-        // Pedidos pronta entrega     → desconta ao SAIR da Expedição (bloco else abaixo)
-        if (currentStep.id === 'step_impressao' && productionType !== 'PRONTA_ENTREGA') {
+        // Produção Interna  → desconta ao SAIR da Impressão
+        // Produção Externa  → desconta ao SAIR da Separação de Demanda
+        // Pronta Entrega    → desconta ao SAIR da Expedição (bloco else abaixo)
+        if (currentStep.id === 'step_impressao' && productionType === 'INTERNA') {
+          await descontarEstoque(workItem.orderId)
+        }
+        // Produção Externa: desconta ao sair da Separação de Demanda
+        if (currentStep.id === 'step_separacao') {
           await descontarEstoque(workItem.orderId)
         }
 
