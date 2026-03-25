@@ -331,7 +331,7 @@ export default function OraculoPage() {
             <Slider label="Faturamento anual (RBT12)" value={rbt12} min={50000} max={4800000} step={10000}
               formatFn={fmt} onChange={setRbt12} sublabel="Para calcular faixa do Simples Nacional" />
             <Slider label="Margem líquida estimada" value={lucroEstimado} min={0.05} max={0.60} step={0.01}
-              formatFn={v => `${(v*100).toFixed(0)}%`} onChange={setLucroEstimado} sublabel="Para cálculo do Lucro Real" />
+              formatFn={(v: number) => `${(v*100).toFixed(0)}%`} onChange={setLucroEstimado} sublabel="Para cálculo do Lucro Real" />
           </div>
 
           <div className="bg-white rounded-xl border border-gray-100 p-5">
