@@ -44,7 +44,7 @@ export default function Sidebar() {
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
-  if (pathname === '/login') return null
+  if (pathname === '/login' || pathname === '/modulos') return null
 
   const role    = mounted ? session?.user?.role : null
   const isAdmin = role === 'ADMIN'
