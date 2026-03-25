@@ -212,6 +212,8 @@ export default function ProdutosPage() {
   function openEditConf(c: Config, produtoId: string) {
     setConfForm({
       tipo: c.tipo || 'UNITARIO', qtdKit: String(c.qtdKit),
+      canal: (c as any).canal || 'shopee',
+      subOpcao: (c as any).subOpcao || 'classico',
       tipoMaoObra: (c as any).tipoMaoObra || 'local',
       custoMaoObra: String(c.custoMaoObra),
       tipoArte: (c as any).tipoArte || 'local',
