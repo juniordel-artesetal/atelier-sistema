@@ -184,7 +184,7 @@ export default function SkusPage() {
                 const preco   = config.precoVenda ? Number(config.precoVenda) : null
 
                 // Sugestões com taxa do canal
-                const refPreco  = preco || sugerirPreco(custo, imp, 0.30) || 50
+                const refPreco  = preco || sugerirPreco(custo, imp, 0.30, 0.20, 4) || 50
                 const { taxa, fixo } = getTaxa(config.canal, config.subOpcao || 'classico', refPreco)
                 const pBaixo    = sugerirPreco(custo, imp, 0.15, taxa, fixo)
                 const pSaudavel = sugerirPreco(custo, imp, 0.30, taxa, fixo)
