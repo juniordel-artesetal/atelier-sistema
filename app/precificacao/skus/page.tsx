@@ -36,10 +36,12 @@ function getTaxa(canal: string, sub: string, preco: number): { taxa: number; fix
   return { taxa: 0.03, fixo: 0 }
 }
 
-function sugerirPreco(custo: number, imposto: number, margem: number, taxa: number, fixo: number) {
-  const denom = 1 - taxa - margem
+function sugerirPreco(custo: number, aliqPct: number, margem: number, taxa: number, fixo: number) {
+  // preço = (custo + fixo) / (1 - taxa - aliq% - margem)
+  // imposto incide sobre preço de venda
+  const denom = 1 - taxa - (aliqPct / 100) - margem
   if (denom <= 0) return null
-  return (custo + imposto + fixo) / denom
+  return (custo + fixo) / denom
 }
 
 const CANAL_LABELS: Record<string, string> = {
@@ -107,11 +109,11 @@ export default function SkusPage() {
 
     if (filtro !== 'todos') {
       const custo = Number(config.custoTotal)
-      const imp   = Number(config.impostos || 0)
+      const aliqPctF = Number(config.impostos || 0)
       const preco = Number(config.precoVenda)
       if (filtro === 'sem_preco') return !config.precoVenda
       if (!config.precoVenda) return false
-      const margem = (preco - custo - imp) / preco
+      const margem = (preco - custo) / preco
       if (filtro === 'baixa')    return margem < 0.20
       if (filtro === 'saudavel') return margem >= 0.20 && margem < 0.40
       if (filtro === 'alta')     return margem >= 0.40
@@ -179,20 +181,26 @@ export default function SkusPage() {
             <tbody>
               {linhasFiltradas.map(({ produto, config }, idx) => {
                 const custo   = Number(config.custoTotal)
-                const imp     = Number(config.impostos || 0)
-                const custoUn = config.qtdKit > 0 ? custo / config.qtdKit : custo
                 const preco   = config.precoVenda ? Number(config.precoVenda) : null
 
                 // Sugestões com taxa do canal
-                const refPreco  = preco || sugerirPreco(custo, imp, 0.30, 0.20, 4) || 50
+                const aliqPct    = Number(config.impostos || 0)  // % sobre preço
+                const qtdProd    = Math.max(Number(config.qtdKit) || 1, 1)
+                const custoUnit  = custo / qtdProd  // custo por unidade (informativo)
+                // Preço e sugestões: usa custo TOTAL (lote inteiro para kit, unidade para unitário)
+                const custoBase  = custo  // custo total salvo já é do lote
+                const refPreco   = preco || sugerirPreco(custoBase, aliqPct, 0.30, 0.20, 4) || 50
                 const { taxa, fixo } = getTaxa(config.canal, config.subOpcao || 'classico', refPreco)
-                const pBaixo    = sugerirPreco(custo, imp, 0.15, taxa, fixo)
-                const pSaudavel = sugerirPreco(custo, imp, 0.30, taxa, fixo)
-                const pAlto     = sugerirPreco(custo, imp, 0.45, taxa, fixo)
+                const pBaixo    = sugerirPreco(custoBase, aliqPct, 0.15, taxa, fixo)
+                const pSaudavel = sugerirPreco(custoBase, aliqPct, 0.30, taxa, fixo)
+                const pAlto     = sugerirPreco(custoBase, aliqPct, 0.45, taxa, fixo)
 
-                // Margem real
-                const margemPerc = preco ? ((preco - custo - imp) / preco) * 100 : null
-                const margemRS   = preco ? preco - custo - imp : null
+                // Margem real: lucro = preço - custo_lote - imposto(% sobre preço) - comissão
+                const impostoR   = preco ? preco * (aliqPct / 100) : 0
+                const comissaoR  = preco ? preco * taxa + fixo : 0
+                const lucroR     = preco ? preco - custoBase - impostoR - comissaoR : 0
+                const margemPerc = preco ? (lucroR / preco) * 100 : null
+                const margemRS   = preco ? lucroR : null
 
                 const corMargem = margemPerc === null ? 'text-gray-300'
                   : margemPerc >= 35 ? 'text-green-600'
@@ -225,8 +233,8 @@ export default function SkusPage() {
 
                     {/* Custo */}
                     <td className="px-4 py-3 text-right text-gray-700">{fmtBRL(custo)}</td>
-                    <td className="px-4 py-3 text-right text-gray-400 text-xs">{fmtBRL(custoUn)}</td>
-                    <td className="px-4 py-3 text-right text-gray-500 text-xs">{imp > 0 ? fmtBRL(imp) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-gray-400 text-xs">{fmtBRL(custoUnit)}</td>
+                    <td className="px-4 py-3 text-right text-gray-500 text-xs">{aliqPct > 0 ? `${aliqPct}%` : '—'}</td>
 
                     {/* Sugestões clicáveis */}
                     {[

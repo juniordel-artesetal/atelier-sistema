@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 const tabs = [
   { href: '/precificacao/materiais', label: 'Materiais'    },
   { href: '/precificacao/produtos',  label: 'Produtos'     },
+  { href: '/precificacao/combos',    label: 'Combos'         },
   { href: '/precificacao/skus',      label: 'Lista de SKUs' },
   { href: '/precificacao/canais',    label: 'Canais de Venda' },
   { href: '/precificacao/calcular',          label: 'Calculadora'       },

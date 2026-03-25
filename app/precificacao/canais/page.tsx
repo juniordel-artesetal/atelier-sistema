@@ -46,10 +46,11 @@ function getTaxa(canal: string, sub: string, preco: number) {
   return { taxa: 0.03, fixo: 0 }
 }
 
-function calcPreco(custo: number, imp: number, margem: number, taxa: number, fixo: number) {
-  const denom = 1 - taxa - margem
+function calcPreco(custo: number, aliqPct: number, margem: number, taxa: number, fixo: number) {
+  // preço = (custo + fixo) / (1 - taxa - aliq% - margem)
+  const denom = 1 - taxa - (aliqPct / 100) - margem
   if (denom <= 0) return null
-  return (custo + imp + fixo) / denom
+  return (custo + fixo) / denom
 }
 
 function fmtBRL(n: number) {
@@ -170,8 +171,8 @@ export default function CanaisPage() {
 
               {/* Configurações do produto */}
               {expanded.has(produto.id) && produto.configs.map(config => {
-                const custo = Number(config.custoTotal)
-                const imp   = Number(config.impostos || 0)
+                const custo    = Number(config.custoTotal)  // custo total do lote
+                const aliqPct  = Number(config.impostos || 0)  // % sobre preço
                 const precoAtual = config.precoVenda ? Number(config.precoVenda) : null
 
                 return (
@@ -182,7 +183,7 @@ export default function CanaisPage() {
                         {config.tipo === 'KIT' ? '🎁 Kit' : '📦 Unitário'} · {config.qtdKit} un
                       </span>
                       <span className="text-xs text-gray-500">Custo: <strong>{fmtBRL(custo)}</strong></span>
-                      {imp > 0 && <span className="text-xs text-gray-500">Impostos: <strong>{fmtBRL(imp)}</strong></span>}
+                      {aliqPct > 0 && <span className="text-xs text-gray-500">Impostos: <strong>{aliqPct}%</strong></span>}
                       {precoAtual && (
                         <span className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full font-medium">
                           Preço atual: {fmtBRL(precoAtual)}
@@ -202,18 +203,19 @@ export default function CanaisPage() {
 
                         return subOpcoes.map(sub => {
                           // Usa preço saudável como referência para calcular faixa Shopee
-                          const refPreco = precoAtual || calcPreco(custo, imp, 0.30, 0.20, 4) || 50
+                          const refPreco = precoAtual || calcPreco(custo, aliqPct, 0.30, 0.20, 4) || 50
                           const { taxa, fixo } = getTaxa(canal.key, sub.key, refPreco)
 
-                          const pBaixo    = calcPreco(custo, imp, 0.15, taxa, fixo)
-                          const pSaudavel = calcPreco(custo, imp, 0.30, taxa, fixo)
-                          const pAlto     = calcPreco(custo, imp, 0.45, taxa, fixo)
+                          const pBaixo    = calcPreco(custo, aliqPct, 0.15, taxa, fixo)
+                          const pSaudavel = calcPreco(custo, aliqPct, 0.30, taxa, fixo)
+                          const pAlto     = calcPreco(custo, aliqPct, 0.45, taxa, fixo)
 
                           // Margem do preço atual neste canal
                           let margemAtual: number | null = null
                           if (precoAtual) {
                             const { taxa: t, fixo: f } = getTaxa(canal.key, sub.key, precoAtual)
-                            margemAtual = ((precoAtual - custo - imp - f - precoAtual * t) / precoAtual) * 100
+                            const lucro = precoAtual - custo - precoAtual*(aliqPct/100) - (precoAtual*t + f)
+                            margemAtual = (lucro / precoAtual) * 100
                           }
 
                           const canalLabel = sub.label ? `${canal.label} ${sub.label}` : canal.label

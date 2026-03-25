@@ -272,7 +272,7 @@ export default function OraculoPage() {
 
           {/* Estado */}
           <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <p className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-2">🗺 Estado do Comprador</p>
+            <p className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-2">🗺 Estado do Vendedor</p>
             <select value={estadoUF} onChange={e => setEstadoUF(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
               {ESTADOS.map(e => <option key={e.uf} value={e.uf}>{e.uf} — {e.nome} ({(e.icms*100).toFixed(1)}%)</option>)}

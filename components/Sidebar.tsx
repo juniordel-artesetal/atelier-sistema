@@ -36,6 +36,7 @@ const setores = [
 const precLinks = [
   { href: '/precificacao/materiais', label: 'Materiais',     icon: Box        },
   { href: '/precificacao/produtos',  label: 'Produtos',      icon: Package    },
+  { href: '/precificacao/combos',    label: 'Combos',          icon: ShoppingBag      },
   { href: '/precificacao/skus',      label: 'Lista de SKUs',    icon: BarChart2  },
   { href: '/precificacao/canais',    label: 'Canais de Venda',  icon: DollarSign },
   { href: '/precificacao/calcular',        label: 'Calculadora',  icon: Calculator },
