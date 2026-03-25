@@ -229,7 +229,7 @@ export default function Sidebar() {
                 <Settings size={15} />Configurações
               </Link>
             )}
-            {canGestao && modulo !== 'gestao' && (
+            {canGestao && (
               <Link href="/gestao" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors mb-1">
                 <Brain size={15} />Análise de Gestão
               </Link>
