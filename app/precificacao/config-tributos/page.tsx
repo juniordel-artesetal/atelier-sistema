@@ -139,9 +139,9 @@ export default function ConfigTributosPage() {
             {regimeSel && (
               <div className="mt-4 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
                 <p className="text-xs text-blue-700">ℹ️ {regimeSel.nota}</p>
-                <a href="https://claude.ai" target="_blank" rel="noopener"
+                <a href="/precificacao/oraculo"
                   className="text-xs text-blue-500 hover:underline mt-1 inline-block">
-                  💬 Dúvidas? Consulte o Oráculo Contábil
+                  💬 Dúvidas? Consulte o Oráculo Contábil →
                 </a>
               </div>
             )}
