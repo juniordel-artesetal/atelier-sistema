@@ -8,7 +8,7 @@ const MESES_ABR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role === 'OPERADOR')
+  if (!session || session.user.role !== 'ADMIN')
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
 
   const { searchParams } = new URL(req.url)

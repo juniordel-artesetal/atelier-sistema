@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role === 'OPERADOR')
+  if (!session || session.user.role !== 'ADMIN')
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
 
   const hoje = new Date()

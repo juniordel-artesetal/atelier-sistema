@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role === 'OPERADOR')
+  if (!session || session.user.role !== 'ADMIN')
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
 
   const { id } = await params
@@ -45,7 +45,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role === 'OPERADOR')
+  if (!session || session.user.role !== 'ADMIN')
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
 
   const { id } = await params
