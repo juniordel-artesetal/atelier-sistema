@@ -171,36 +171,43 @@ REGRAS IMPORTANTES:
     { role: 'user', content: mensagem }
   ]
 
-  // ── Chamar Claude Haiku
+  // ── Chamar Google Gemini Flash
   const apiKey = process.env.ANTHROPIC_API_KEY_GESTAO
   if (!apiKey) {
-    console.error('ANTHROPIC_API_KEY não configurada')
+    console.error('GEMINI_API_KEY não configurada')
     return NextResponse.json({ error: 'Chave da IA não configurada no servidor.' }, { status: 500 })
   }
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1500,
-      system: systemPrompt,
-      messages,
-    }),
-  })
+  // Montar histórico no formato Gemini
+  const geminiMessages = messages.map((m: any) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }))
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: geminiMessages,
+        generationConfig: {
+          maxOutputTokens: 1500,
+          temperature: 0.7,
+        },
+      }),
+    }
+  )
 
   if (!response.ok) {
     const err = await response.text()
-    console.error('Claude API error:', err)
+    console.error('Gemini API error:', err)
     return NextResponse.json({ error: 'Erro ao chamar a IA. Tente novamente.' }, { status: 500 })
   }
 
   const data = await response.json()
-  const content = data.content?.[0]?.text || 'Não foi possível gerar a análise.'
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Não foi possível gerar a análise.'
 
   const result = { content, historico: [...messages, { role: 'assistant', content }] }
 
