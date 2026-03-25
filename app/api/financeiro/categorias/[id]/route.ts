@@ -4,36 +4,38 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session || session.user.role !== 'ADMIN')
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
 
+  const { id } = await params
   const { nome, tipo, cor, icone } = await req.json()
 
   await prisma.$executeRaw`
     UPDATE "FinCategoria"
     SET nome=${nome}, tipo=${tipo}, cor=${cor}, icone=${icone}
-    WHERE id=${params.id} AND "workspaceId"='ws_atelier'
+    WHERE id=${id} AND "workspaceId"='ws_atelier'
   `
 
   const [row] = await prisma.$queryRaw`
-    SELECT * FROM "FinCategoria" WHERE id=${params.id}
+    SELECT * FROM "FinCategoria" WHERE id=${id}
   ` as any[]
 
   return NextResponse.json(row)
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session || session.user.role !== 'ADMIN')
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
 
+  const { id } = await params
+
   try {
-    // COUNT retorna bigint no PostgreSQL — converter para texto e depois número
     const [count] = await prisma.$queryRaw`
       SELECT COUNT(*) AS total FROM "FinLancamento"
-      WHERE "categoriaId" = ${params.id} AND "workspaceId" = 'ws_atelier'
+      WHERE "categoriaId" = ${id} AND "workspaceId" = 'ws_atelier'
     ` as any[]
 
     const total = Number(count?.total ?? 0)
@@ -46,7 +48,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
     await prisma.$executeRaw`
       DELETE FROM "FinCategoria"
-      WHERE id = ${params.id} AND "workspaceId" = 'ws_atelier'
+      WHERE id = ${id} AND "workspaceId" = 'ws_atelier'
     `
 
     return NextResponse.json({ ok: true })
