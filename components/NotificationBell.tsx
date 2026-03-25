@@ -40,6 +40,21 @@ interface StockNotif {
   critico: boolean
 }
 
+interface FinNotif {
+  id: string
+  tipo: 'RECEITA' | 'DESPESA'
+  descricao: string
+  valor: number
+  data: string
+  canal?: string
+  categoriaNome?: string
+  categoriaIcone?: string
+  categoriaCor?: string
+  diffDays: number
+  atrasado: boolean
+  label: string
+}
+
 type AnyNotif = DueDateNotif | DemandNotif | StockNotif
 
 const BOW_COLOR_MAP: Record<string, string> = {
@@ -53,7 +68,8 @@ const BOW_TYPE_LABEL: Record<string, string> = { SIMPLE: 'Simples', LUXURY: 'Lux
 
 export default function NotificationBell() {
   const { data: session } = useSession()
-  const [items, setItems]   = useState<AnyNotif[]>([])
+  const [items, setItems]       = useState<AnyNotif[]>([])
+  const [finNotifs, setFinNotifs] = useState<FinNotif[]>([])
   const [open, setOpen]     = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [marking, setMarking] = useState<string | null>(null)
@@ -66,7 +82,15 @@ export default function NotificationBell() {
       .then(r => r.json())
       .then(data => { setItems(Array.isArray(data) ? data : []); setLoaded(true) })
       .catch(() => setLoaded(true))
-  }, [])
+
+    // Alertas financeiros (só ADMIN)
+    if (session?.user?.role === 'ADMIN') {
+      fetch('/api/financeiro/alertas')
+        .then(r => r.json())
+        .then(data => setFinNotifs(Array.isArray(data) ? data : []))
+        .catch(() => {})
+    }
+  }, [session?.user?.role])
 
   useEffect(() => {
     if (!canSee) return
@@ -117,7 +141,11 @@ export default function NotificationBell() {
 
   // Badge conta: demandas não lidas + tarefas de prazo + estoque crítico (zerado)
   const criticalStock = stockNotifs.filter(s => s.critico)
-  const badgeCount = unreadDemands.length + dueDateNotifs.length + criticalStock.length
+  const finAtrasadas  = finNotifs.filter(n => n.atrasado)
+  const finAVencer    = finNotifs.filter(n => !n.atrasado)
+  const finReceitas   = finNotifs.filter(n => n.tipo === 'RECEITA')
+  const finDespesas   = finNotifs.filter(n => n.tipo === 'DESPESA')
+  const badgeCount    = unreadDemands.length + dueDateNotifs.length + criticalStock.length + finNotifs.length
 
   return (
     <div ref={ref} className="relative">
@@ -229,6 +257,60 @@ export default function NotificationBell() {
                   </div>
                 )}
 
+                {/* ── Alertas Financeiros ── */}
+                {finNotifs.length > 0 && (
+                  <div>
+                    <p className="px-4 py-2 text-xs font-semibold text-green-700 uppercase bg-green-50 flex items-center justify-between">
+                      <span>💰 Financeiro ({finNotifs.length})</span>
+                      {finAtrasadas.length > 0 && (
+                        <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                          {finAtrasadas.length} atrasado(s)
+                        </span>
+                      )}
+                    </p>
+
+                    {/* Despesas atrasadas */}
+                    {finDespesas.filter(n => n.atrasado).length > 0 && (
+                      <div>
+                        <p className="px-4 py-1.5 text-xs font-medium text-red-500 bg-red-50/50">
+                          Despesas atrasadas ({finDespesas.filter(n => n.atrasado).length})
+                        </p>
+                        {finDespesas.filter(n => n.atrasado).map(n => <FinNotifItem key={n.id} n={n} />)}
+                      </div>
+                    )}
+
+                    {/* Despesas a vencer */}
+                    {finDespesas.filter(n => !n.atrasado).length > 0 && (
+                      <div>
+                        <p className="px-4 py-1.5 text-xs font-medium text-orange-500 bg-orange-50/50">
+                          Despesas a vencer ({finDespesas.filter(n => !n.atrasado).length})
+                        </p>
+                        {finDespesas.filter(n => !n.atrasado).map(n => <FinNotifItem key={n.id} n={n} />)}
+                      </div>
+                    )}
+
+                    {/* Receitas atrasadas */}
+                    {finReceitas.filter(n => n.atrasado).length > 0 && (
+                      <div>
+                        <p className="px-4 py-1.5 text-xs font-medium text-red-500 bg-red-50/50">
+                          Receitas atrasadas ({finReceitas.filter(n => n.atrasado).length})
+                        </p>
+                        {finReceitas.filter(n => n.atrasado).map(n => <FinNotifItem key={n.id} n={n} />)}
+                      </div>
+                    )}
+
+                    {/* Receitas a vencer */}
+                    {finReceitas.filter(n => !n.atrasado).length > 0 && (
+                      <div>
+                        <p className="px-4 py-1.5 text-xs font-medium text-teal-600 bg-teal-50/50">
+                          Receitas a receber ({finReceitas.filter(n => !n.atrasado).length})
+                        </p>
+                        {finReceitas.filter(n => !n.atrasado).map(n => <FinNotifItem key={n.id} n={n} />)}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* ── Notificações de Prazo ── */}
                 {dueDateNotifs.length > 0 && (
                   <div>
@@ -281,6 +363,51 @@ function DueDateItem({ n }: { n: DueDateNotif }) {
         }`}>
           {n.label}
         </span>
+      </div>
+    </div>
+  )
+}
+
+
+function fmtR(n: number) {
+  return 'R$ ' + (n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function FinNotifItem({ n }: { n: FinNotif }) {
+  const isReceita = n.tipo === 'RECEITA'
+  return (
+    <div className={`px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors border-l-4 ${
+      n.atrasado
+        ? 'border-l-red-400'
+        : isReceita ? 'border-l-teal-400' : 'border-l-orange-400'
+    }`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm">{n.categoriaIcone || (isReceita ? '💰' : '💸')}</span>
+            <p className="text-sm font-medium text-gray-800 truncate">{n.descricao}</p>
+          </div>
+          {n.categoriaNome && (
+            <p className="text-xs mt-0.5" style={{ color: n.categoriaCor || '#6b7280' }}>
+              {n.categoriaNome}
+            </p>
+          )}
+          {n.canal && <p className="text-xs text-gray-400 capitalize">{n.canal.replace('_', ' ')}</p>}
+        </div>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <span className={`text-sm font-bold ${isReceita ? 'text-green-600' : 'text-red-600'}`}>
+            {isReceita ? '+' : '-'}{fmtR(n.valor)}
+          </span>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+            n.atrasado
+              ? 'bg-red-100 text-red-600'
+              : n.diffDays === 0
+                ? 'bg-orange-100 text-orange-600'
+                : 'bg-yellow-100 text-yellow-700'
+          }`}>
+            {n.label}
+          </span>
+        </div>
       </div>
     </div>
   )

@@ -29,8 +29,8 @@ export default async function ModulosPage() {
       icon: '💵',
       title: 'Gestão Financeira',
       description: 'Controle receitas, despesas, fluxo de caixa e resultados do negócio.',
-      href: null,
-      ativo: false,
+      href: '/financeiro',
+      ativo: isAdmin,
     },
     {
       icon: '📈',

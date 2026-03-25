@@ -8,7 +8,8 @@ import {
   Home, LayoutDashboard, Package, Palette, Archive, Printer,
   Factory, Scissors, CheckSquare, Send, Users, UserCheck,
   Paintbrush, BarChart2, LogOut, Menu, X, ShoppingBag, ClipboardList,
-  Settings, Calculator, Box, DollarSign
+  Settings, Calculator, Box, DollarSign,
+  TrendingUp, Wallet, Target, Tag,
 } from 'lucide-react'
 
 // ── Produção ─────────────────────────────────────────────────────────────────
@@ -17,9 +18,9 @@ const producaoTopLinks = [
   { href: '/pedidos',   label: 'Pedidos',   icon: Package          },
 ]
 const lacosLinks = [
-  { href: '/lacos/estoque',       label: 'Estoque',            icon: null },
-  { href: '/lacos/lancar',        label: 'Lancar Producao',    icon: null },
-  { href: '/lacos/produtividade', label: 'Produtividade Lacos',icon: BarChart2 },
+  { href: '/lacos/estoque',       label: 'Estoque',             icon: null     },
+  { href: '/lacos/lancar',        label: 'Lancar Producao',     icon: null     },
+  { href: '/lacos/produtividade', label: 'Produtividade Lacos', icon: BarChart2 },
 ]
 const setores = [
   { href: '/setores/dep_arte',      label: 'Arte',                 icon: Palette,       depId: 'dep_arte'      },
@@ -34,14 +35,23 @@ const setores = [
 
 // ── Precificação ──────────────────────────────────────────────────────────────
 const precLinks = [
-  { href: '/precificacao/materiais', label: 'Materiais',     icon: Box        },
-  { href: '/precificacao/produtos',  label: 'Produtos',      icon: Package    },
-  { href: '/precificacao/combos',    label: 'Combos',          icon: ShoppingBag      },
-  { href: '/precificacao/skus',      label: 'Lista de SKUs',    icon: BarChart2  },
-  { href: '/precificacao/canais',    label: 'Canais de Venda',  icon: DollarSign },
-  { href: '/precificacao/calcular',        label: 'Calculadora',  icon: Calculator },
-  { href: '/precificacao/config-tributos', label: 'Tributação',      icon: Settings   },
-  { href: '/precificacao/oraculo',         label: 'Oráculo Contábil', icon: BarChart2  },
+  { href: '/precificacao/materiais',      label: 'Materiais',        icon: Box        },
+  { href: '/precificacao/produtos',       label: 'Produtos',         icon: Package    },
+  { href: '/precificacao/combos',         label: 'Combos',           icon: ShoppingBag },
+  { href: '/precificacao/skus',           label: 'Lista de SKUs',    icon: BarChart2  },
+  { href: '/precificacao/canais',         label: 'Canais de Venda',  icon: DollarSign },
+  { href: '/precificacao/calcular',       label: 'Calculadora',      icon: Calculator },
+  { href: '/precificacao/config-tributos',label: 'Tributação',       icon: Settings   },
+  { href: '/precificacao/oraculo',        label: 'Oráculo Contábil', icon: BarChart2  },
+]
+
+// ── Financeiro ────────────────────────────────────────────────────────────────
+const financeiroLinks = [
+  { href: '/financeiro',             label: 'Dashboard',      icon: BarChart2  },
+  { href: '/financeiro/lancamentos', label: 'Lançamentos',    icon: Wallet     },
+  { href: '/financeiro/fluxo',       label: 'Fluxo de Caixa', icon: TrendingUp },
+  { href: '/financeiro/metas',       label: 'Metas',          icon: Target     },
+  { href: '/financeiro/categorias',  label: 'Categorias',     icon: Tag        },
 ]
 
 // ── Configurações ─────────────────────────────────────────────────────────────
@@ -56,8 +66,9 @@ const configLinks = [
 // Determina o módulo ativo pela rota
 function getModulo(pathname: string) {
   if (pathname.startsWith('/precificacao')) return 'precificacao'
+  if (pathname.startsWith('/financeiro'))   return 'financeiro'
   if (pathname.startsWith('/admin'))        return 'config'
-  return 'producao' // dashboard, pedidos, lacos, setores
+  return 'producao'
 }
 
 export default function Sidebar() {
@@ -77,6 +88,7 @@ export default function Sidebar() {
   const isAdmin = role === 'ADMIN'
   const isOp    = role === 'OPERADOR'
   const canPrec = role === 'ADMIN'
+  const canFin  = role === 'ADMIN'
   const modulo  = getModulo(pathname)
 
   const userDeptIds: string[] = mounted
@@ -153,55 +165,67 @@ export default function Sidebar() {
 
         {/* ── MÓDULO: PRECIFICAÇÃO ── */}
         {modulo === 'precificacao' && canPrec && (
-          <>
-            <div className="mt-2">
-              <p className="text-xs font-semibold text-purple-400 uppercase px-3 mb-1">Precificação</p>
-              <nav className="flex flex-col gap-1">
-                {precLinks.map(({ href, label, icon: Icon }) => (
-                  <Link key={href} href={href} className={lc(href)}><Icon size={16} />{label}</Link>
-                ))}
-              </nav>
-            </div>
-          </>
+          <div className="mt-2">
+            <p className="text-xs font-semibold text-purple-400 uppercase px-3 mb-1">Precificação</p>
+            <nav className="flex flex-col gap-1">
+              {precLinks.map(({ href, label, icon: Icon }) => (
+                <Link key={href} href={href} className={lc(href)}><Icon size={16} />{label}</Link>
+              ))}
+            </nav>
+          </div>
+        )}
+
+        {/* ── MÓDULO: FINANCEIRO ── */}
+        {modulo === 'financeiro' && canFin && (
+          <div className="mt-2">
+            <p className="text-xs font-semibold text-green-600 uppercase px-3 mb-1">Financeiro</p>
+            <nav className="flex flex-col gap-1">
+              {financeiroLinks.map(({ href, label, icon: Icon }) => (
+                <Link key={href} href={href} className={lc(href)}><Icon size={16} />{label}</Link>
+              ))}
+            </nav>
+          </div>
         )}
 
         {/* ── MÓDULO: CONFIGURAÇÕES ── */}
         {modulo === 'config' && isAdmin && (
-          <>
-            <div className="mt-2">
-              <p className="text-xs font-semibold text-gray-400 uppercase px-3 mb-1">Configurações</p>
-              <nav className="flex flex-col gap-1">
-                {configLinks.map(({ href, label, icon: Icon }) => (
-                  <Link key={href} href={href} className={lc(href)}><Icon size={16} />{label}</Link>
-                ))}
-              </nav>
-            </div>
-          </>
+          <div className="mt-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase px-3 mb-1">Configurações</p>
+            <nav className="flex flex-col gap-1">
+              {configLinks.map(({ href, label, icon: Icon }) => (
+                <Link key={href} href={href} className={lc(href)}><Icon size={16} />{label}</Link>
+              ))}
+            </nav>
+          </div>
         )}
 
         <div className="flex-1 min-h-4" />
 
-        {/* Atalhos para outros módulos — rodapé */}
-        <div className="border-t border-gray-100 pt-3 mt-3 flex-shrink-0">
-          {/* Botão Configurações — sempre visível para Admin */}
-          {isAdmin && modulo !== 'config' && (
-            <Link href="/admin/usuarios" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors mb-1">
-              <Settings size={15} />Configurações
-            </Link>
-          )}
-          {/* Botão Precificação — sempre visível para Admin/Delegador */}
-          {canPrec && modulo !== 'precificacao' && (
-            <Link href="/precificacao/materiais" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors mb-1">
-              <DollarSign size={15} />Precificação
-            </Link>
-          )}
-          {/* Botão Produção — visível quando fora do módulo produção */}
-          {modulo !== 'producao' && (
-            <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors mb-1">
-              <Factory size={15} />Produção
-            </Link>
-          )}
-        </div>
+        {/* Atalhos para outros módulos — oculto no financeiro */}
+        {modulo !== 'financeiro' && (
+          <div className="border-t border-gray-100 pt-3 mt-3 flex-shrink-0">
+            {isAdmin && modulo !== 'config' && (
+              <Link href="/admin/usuarios" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors mb-1">
+                <Settings size={15} />Configurações
+              </Link>
+            )}
+            {canFin && (
+              <Link href="/financeiro" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors mb-1">
+                <TrendingUp size={15} />Financeiro
+              </Link>
+            )}
+            {canPrec && modulo !== 'precificacao' && (
+              <Link href="/precificacao/materiais" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors mb-1">
+                <DollarSign size={15} />Precificação
+              </Link>
+            )}
+            {modulo !== 'producao' && (
+              <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors mb-1">
+                <Factory size={15} />Produção
+              </Link>
+            )}
+          </div>
+        )}
 
         {/* User + Logout */}
         <div className="pt-3 border-t border-gray-100 flex-shrink-0">
