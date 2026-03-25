@@ -69,7 +69,8 @@ const configLinks = [
 ]
 
 // Determina o módulo ativo pela rota
-function getModulo(pathname: string) {
+type Modulo = 'producao' | 'precificacao' | 'financeiro' | 'gestao' | 'config'
+function getModulo(pathname: string): Modulo {
   if (pathname.startsWith('/precificacao')) return 'precificacao'
   if (pathname.startsWith('/financeiro'))   return 'financeiro'
   if (pathname.startsWith('/gestao'))       return 'gestao'
