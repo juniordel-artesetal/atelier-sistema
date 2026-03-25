@@ -9,7 +9,7 @@ import {
   Factory, Scissors, CheckSquare, Send, Users, UserCheck,
   Paintbrush, BarChart2, LogOut, Menu, X, ShoppingBag, ClipboardList,
   Settings, Calculator, Box, DollarSign,
-  TrendingUp, Wallet, Target, Tag,
+  TrendingUp, Wallet, Target, Tag, Brain,
 } from 'lucide-react'
 
 // ── Produção ─────────────────────────────────────────────────────────────────
@@ -54,6 +54,11 @@ const financeiroLinks = [
   { href: '/financeiro/categorias',  label: 'Categorias',     icon: Tag        },
 ]
 
+// ── Gestão
+const gestaoLinks = [
+  { href: '/gestao', label: 'Análise de Gestão', icon: Brain },
+]
+
 // ── Configurações ─────────────────────────────────────────────────────────────
 const configLinks = [
   { href: '/admin/usuarios',              label: 'Usuários',       icon: Users         },
@@ -67,6 +72,7 @@ const configLinks = [
 function getModulo(pathname: string) {
   if (pathname.startsWith('/precificacao')) return 'precificacao'
   if (pathname.startsWith('/financeiro'))   return 'financeiro'
+  if (pathname.startsWith('/gestao'))       return 'gestao'
   if (pathname.startsWith('/admin'))        return 'config'
   return 'producao'
 }
@@ -88,7 +94,8 @@ export default function Sidebar() {
   const isAdmin = role === 'ADMIN'
   const isOp    = role === 'OPERADOR'
   const canPrec = role === 'ADMIN'
-  const canFin  = role === 'ADMIN'
+  const canFin     = role === 'ADMIN'
+  const canGestao  = role === 'ADMIN'
   const modulo  = getModulo(pathname)
 
   const userDeptIds: string[] = mounted
@@ -187,6 +194,18 @@ export default function Sidebar() {
           </div>
         )}
 
+        {/* ── MÓDULO: GESTÃO ── */}
+        {modulo === 'gestao' && canGestao && (
+          <div className="mt-2">
+            <p className="text-xs font-semibold text-purple-600 uppercase px-3 mb-1">Análise de Gestão</p>
+            <nav className="flex flex-col gap-1">
+              {gestaoLinks.map(({ href, label, icon: Icon }) => (
+                <Link key={href} href={href} className={lc(href)}><Icon size={16} />{label}</Link>
+              ))}
+            </nav>
+          </div>
+        )}
+
         {/* ── MÓDULO: CONFIGURAÇÕES ── */}
         {modulo === 'config' && isAdmin && (
           <div className="mt-2">
@@ -202,11 +221,16 @@ export default function Sidebar() {
         <div className="flex-1 min-h-4" />
 
         {/* Atalhos para outros módulos — oculto no financeiro */}
-        {modulo !== 'financeiro' && (
+        {modulo !== 'financeiro' && modulo !== 'gestao' && (
           <div className="border-t border-gray-100 pt-3 mt-3 flex-shrink-0">
             {isAdmin && modulo !== 'config' && (
               <Link href="/admin/usuarios" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors mb-1">
                 <Settings size={15} />Configurações
+              </Link>
+            )}
+            {canGestao && modulo !== 'gestao' && (
+              <Link href="/gestao" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors mb-1">
+                <Brain size={15} />Análise de Gestão
               </Link>
             )}
             {canFin && (

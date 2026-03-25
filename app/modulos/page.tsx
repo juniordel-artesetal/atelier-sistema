@@ -36,8 +36,8 @@ export default async function ModulosPage() {
       icon: '📈',
       title: 'Análise de Gestão',
       description: 'Dashboards executivos com indicadores de desempenho do negócio.',
-      href: null,
-      ativo: false,
+      href: '/gestao',
+      ativo: isAdmin,
     },
     {
       icon: '📊',
