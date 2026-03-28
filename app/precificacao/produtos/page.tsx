@@ -94,6 +94,7 @@ export default function ProdutosPage() {
   const [novoMatForm, setNovoMatForm]   = useState({ nome: '', unidade: 'unidade', precoPacote: '', qtdPacote: '', fornecedor: '' })
   const [savingNovoMat, setSavingNovo]  = useState(false)
   const [aliqPadrao, setAliqPadrao]     = useState<number | null>(null)
+  const [matModo, setMatModo]           = useState<('direto'|'proporcional')[]>([])
   const [embalagens, setEmbalagens]     = useState<Embalagem[]>([])
   const [confirmDelId, setConfirmDelId]   = useState<string | null>(null)
   const [copiandoId, setCopiandoId]       = useState<string | null>(null)
@@ -103,6 +104,9 @@ export default function ProdutosPage() {
   const [salvandoMassa, setSalvandoMassa] = useState(false)
   const [massaResult, setMassaResult]     = useState<{ criados: number; erros: string[] } | null>(null)
   const [copiandoConfId, setCopiandoConfId] = useState<string | null>(null)
+  const [showHistorico, setShowHistorico] = useState(false)
+  const [historico, setHistorico]         = useState<any[]>([])
+  const [loadingHist, setLoadingHist]     = useState(false)
   const [showMassaConf, setShowMassaConf] = useState<string | null>(null) // produtoId
   const [massaConfCanais, setMassaConfCanais] = useState<string[]>([])
   const [salvandoMassaConf, setSalvandoMassaConf] = useState(false)
@@ -214,6 +218,7 @@ export default function ProdutosPage() {
   // ── Handlers material ─────────────────────────────────────────────────────
   function addMat() {
     setConf(p => ({ ...p, materiais: [...p.materiais, { materialId: null, nomeMaterial: '', qtdUsada: 1, custoUnit: 0, rendimento: 1 }] }))
+    setMatModo(p => [...p, 'direto'])
   }
   function selMat(idx: number, matId: string) {
     const mat = matCad.find(m => m.id === matId)
@@ -228,6 +233,7 @@ export default function ProdutosPage() {
   }
   function removeMat(idx: number) {
     setConf(p => ({ ...p, materiais: p.materiais.filter((_, i) => i !== idx) }))
+    setMatModo(p => p.filter((_, i) => i !== idx))
   }
   async function saveNovoMat(idx: number) {
     if (!novoMatForm.nome || !novoMatForm.precoPacote || !novoMatForm.qtdPacote) return alert('Preencha os campos obrigatórios')
@@ -279,6 +285,17 @@ export default function ProdutosPage() {
     if (!confirm('Excluir esta configuração?')) return
     await fetch(`/api/precificacao/variacoes/${id}`, { method: 'DELETE' }); load()
   }
+  async function carregarHistorico(confId: string) {
+    setLoadingHist(true)
+    setShowHistorico(true)
+    try {
+      const res = await fetch(`/api/precificacao/variacoes/${confId}/historico`)
+      const data = await res.json()
+      setHistorico(Array.isArray(data) ? data : [])
+    } catch { setHistorico([]) }
+    finally { setLoadingHist(false) }
+  }
+
   async function copiarConf(c: Config, produtoId: string) {
     setCopiandoConfId(c.id)
     try {
@@ -389,6 +406,7 @@ export default function ProdutosPage() {
       descontoPct: (c as any).descontoPct ? String((c as any).descontoPct) : '',
       materiais: c.materiais.map(m => ({ ...m })),
     })
+    setMatModo((c.materiais || []).map(() => 'direto' as const))
     setEditConfId(c.id); setShowConf(produtoId)
   }
 
@@ -554,34 +572,86 @@ export default function ProdutosPage() {
                         <button onClick={() => removeMat(i)} className="text-red-400 hover:text-red-600 text-lg pb-1 flex-shrink-0">✕</button>
                       </div>
 
+                      {/* Toggle modo direto / proporcional */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-gray-400">Modo:</span>
+                        <button type="button"
+                          onClick={() => setMatModo(p => { const u = [...p]; u[i] = 'direto'; return u })}
+                          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${(matModo[i] || 'direto') === 'direto' ? 'bg-purple-100 border-purple-400 text-purple-700 font-semibold' : 'border-gray-200 text-gray-400 hover:border-gray-300'}`}>
+                          Qtd direta
+                        </button>
+                        <button type="button"
+                          onClick={() => setMatModo(p => { const u = [...p]; u[i] = 'proporcional'; return u })}
+                          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${(matModo[i] || 'direto') === 'proporcional' ? 'bg-blue-100 border-blue-400 text-blue-700 font-semibold' : 'border-gray-200 text-gray-400 hover:border-gray-300'}`}>
+                          ÷ Proporcional
+                        </button>
+                      </div>
+
                       {/* Linha 2: campos numéricos */}
                       <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-0.5">Qtd usada</label>
-                          <input
-                            type="number" step="any" inputMode="decimal"
-                            value={m.qtdUsada === 0 ? '' : m.qtdUsada}
-                            onChange={e => updateMat(i, 'qtdUsada', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                            className={inputClass} placeholder="1" />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-0.5">R$/uni</label>
-                          <input
-                            type="number" step="0.01" inputMode="decimal"
-                            value={m.custoUnit === 0 ? '' : Number(m.custoUnit).toFixed(2)}
-                            onChange={e => updateMat(i, 'custoUnit', parseFloat(e.target.value) || 0)}
-                            className={inputClass} placeholder="0.00" />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-0.5" title="Quantos produtos saem desta quantidade">
-                            Rendimento
-                          </label>
-                          <input
-                            type="number" step="any" inputMode="decimal"
-                            value={m.rendimento === 1 ? '' : m.rendimento}
-                            onChange={e => updateMat(i, 'rendimento', e.target.value === '' ? 1 : parseFloat(e.target.value) || 1)}
-                            className={inputClass} placeholder="1" />
-                        </div>
+                        {(matModo[i] || 'direto') === 'proporcional' ? (
+                          <>
+                            <div className="col-span-2">
+                              <label className="block text-xs text-gray-400 mb-0.5">
+                                Cabe quantos itens por unidade?
+                              </label>
+                              <input
+                                type="number" step="1" min="1" inputMode="numeric"
+                                value={m.rendimento || ''}
+                                onChange={e => {
+                                  const n = parseFloat(e.target.value) || 0
+                                  setConf(p => {
+                                    const u = [...p.materiais]
+                                    u[i] = { ...u[i], rendimento: n || 1, qtdUsada: 1 }
+                                    return { ...p, materiais: u }
+                                  })
+                                }}
+                                className={inputClass} placeholder="Ex: 6 apliques por folha" />
+                              {m.rendimento > 1 && (
+                                <p className="text-xs text-blue-600 mt-1">
+                                  Proporcional: <strong>1 ÷ {m.rendimento} = {(1/m.rendimento).toFixed(4)}</strong> por item
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-0.5">R$/uni</label>
+                              <input
+                                type="number" step="0.01" inputMode="decimal"
+                                value={m.custoUnit === 0 ? '' : Number(m.custoUnit).toFixed(2)}
+                                onChange={e => updateMat(i, 'custoUnit', parseFloat(e.target.value) || 0)}
+                                className={inputClass} placeholder="0.00" />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-0.5">Qtd usada</label>
+                              <input
+                                type="number" step="any" inputMode="decimal"
+                                value={m.qtdUsada === 0 ? '' : m.qtdUsada}
+                                onChange={e => updateMat(i, 'qtdUsada', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                className={inputClass} placeholder="1" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-0.5">R$/uni</label>
+                              <input
+                                type="number" step="0.01" inputMode="decimal"
+                                value={m.custoUnit === 0 ? '' : Number(m.custoUnit).toFixed(2)}
+                                onChange={e => updateMat(i, 'custoUnit', parseFloat(e.target.value) || 0)}
+                                className={inputClass} placeholder="0.00" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-0.5" title="Quantos produtos saem desta quantidade">
+                                Rendimento
+                              </label>
+                              <input
+                                type="number" step="any" inputMode="decimal"
+                                value={m.rendimento === 1 ? '' : m.rendimento}
+                                onChange={e => updateMat(i, 'rendimento', e.target.value === '' ? 1 : parseFloat(e.target.value) || 1)}
+                                className={inputClass} placeholder="1" />
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Custo desta linha */}
@@ -1032,7 +1102,7 @@ export default function ProdutosPage() {
                     <button onClick={e => { e.stopPropagation(); setConfirmDelId(prod.id) }}
                       className="text-xs text-red-500 hover:underline px-2">Excluir</button>
                   )}
-                  <button onClick={e => { e.stopPropagation(); setConf({ ...EMPTY }); setEditConfId(null); setShowConf(prod.id) }}
+                  <button onClick={e => { e.stopPropagation(); setConf({ ...EMPTY }); setEditConfId(null); setMatModo([]); setShowConf(prod.id) }}
                     className="text-xs bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700">
                     + Configuração
                   </button>
@@ -1052,6 +1122,7 @@ export default function ProdutosPage() {
                           <th className="px-4 py-2 text-right text-gray-500">Custo/un</th>
                           <th className="px-4 py-2 text-right text-gray-500">Impostos</th>
                           <th className="px-4 py-2 text-right text-gray-500">Preço venda</th>
+                          <th className="px-4 py-2 text-right text-gray-500">Preço c/ Desconto</th>
                           <th className="px-4 py-2 text-right text-gray-500">Margem</th>
                           <th className="px-4 py-2 text-center text-gray-500">Ações</th>
                         </tr>
@@ -1062,6 +1133,9 @@ export default function ProdutosPage() {
                           const custoUn = Number(c.custoTotal) / qtd
                           const aliq = Number(c.impostos || 0)
                           const p = c.precoVenda ? Number(c.precoVenda) : null
+                          const pp = (c as any).emPromo && (c as any).descontoPct && p
+                            ? p * (1 - Number((c as any).descontoPct) / 100)
+                            : ((c as any).precoPromocional ? Number((c as any).precoPromocional) : null)
                           const canal = getTaxa(c.canal || 'shopee', c.subOpcao || 'classico', p || 0)
                           const lucroR = p ? p - custoUn - p * (aliq / 100) - (p * canal.taxa + canal.fixo) : null
                           const pct = p && lucroR !== null ? (lucroR / p) * 100 : null
@@ -1078,6 +1152,18 @@ export default function ProdutosPage() {
                               <td className="px-4 py-2.5 text-right text-gray-500 text-xs">{aliq > 0 ? `${aliq}%` : '—'}</td>
                               <td className="px-4 py-2.5 text-right font-bold text-green-700">{p ? fmtR(p) : '—'}</td>
                               <td className="px-4 py-2.5 text-right">
+                                {pp ? (
+                                  <div>
+                                    <div className="text-sm font-bold text-orange-600">{fmtR(pp)}</div>
+                                    {(c as any).descontoPct && (
+                                      <div className="inline-flex items-center gap-0.5 bg-orange-50 text-orange-500 text-xs font-semibold px-1.5 py-0.5 rounded-full mt-0.5">
+                                        -{(c as any).descontoPct}% off
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : <span className="text-gray-300 text-xs">—</span>}
+                              </td>
+                              <td className="px-4 py-2.5 text-right">
                                 {pct !== null
                                   ? <div className={`text-xs font-semibold ${cor}`}><div>{pct.toFixed(1)}%</div><div>{lucroR !== null ? fmtR(lucroR) : ''}</div></div>
                                   : <span className="text-gray-300">—</span>}
@@ -1089,6 +1175,7 @@ export default function ProdutosPage() {
                                     className="text-xs text-purple-500 hover:underline disabled:opacity-50">
                                     {copiandoConfId === c.id ? '...' : '📋 Copiar'}
                                   </button>
+                                  <button onClick={() => carregarHistorico(c.id)} className="text-xs text-gray-400 hover:underline">Histórico</button>
                                   <button onClick={() => deleteConf(c.id)} className="text-xs text-red-500 hover:underline">Excluir</button>
                                 </div>
                               </td>
@@ -1104,6 +1191,44 @@ export default function ProdutosPage() {
           ))}
         </div>
       )}
+      {/* ── Modal Histórico de Alterações ── */}
+      {showHistorico && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white">
+              <h2 className="text-lg font-bold text-gray-800">Histórico de Alterações</h2>
+              <button onClick={() => setShowHistorico(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <div className="px-6 py-4">
+              {loadingHist ? (
+                <p className="text-center text-gray-400 py-8">Carregando...</p>
+              ) : historico.length === 0 ? (
+                <p className="text-center text-gray-400 py-8">Nenhuma alteração registrada ainda.</p>
+              ) : (
+                <div className="space-y-2">
+                  {historico.map((h: any) => (
+                    <div key={h.id} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-gray-700">{h.campo}</span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(h.createdAt).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="bg-red-50 text-red-500 px-2 py-0.5 rounded line-through">{h.valorAntes ?? '—'}</span>
+                        <span className="text-gray-400">→</span>
+                        <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded font-medium">{h.valorDepois ?? '—'}</span>
+                      </div>
+                      {h.usuarioNome && <p className="text-xs text-gray-400 mt-1">por {h.usuarioNome}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal Configurações em Massa ── */}
       {showMassaConf && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">

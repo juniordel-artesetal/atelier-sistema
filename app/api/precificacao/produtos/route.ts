@@ -24,7 +24,13 @@ export async function GET() {
             'precoPromocional', v."precoPromocional",
             'metaVendas', v."metaVendas",
             'tipo', v."tipo",
+            'isKit', v."isKit",
+            'canal', v."canal",
+            'subOpcao', v."subOpcao",
             'impostos', v."impostos",
+            'emPromo', v."emPromo",
+            'descontoPct', v."descontoPct",
+            'precoPromocional', v."precoPromocional",
             'materiais', (
               SELECT COALESCE(json_agg(json_build_object(
                 'id', mi."id",

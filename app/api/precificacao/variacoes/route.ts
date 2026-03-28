@@ -22,6 +22,13 @@ export async function POST(req: NextRequest) {
     const custoTotal = Number(custoMaterial||0) + Number(custoMaoObra||0) + Number(custoEmbalagem||0) + Number(custoArte||0)
     const id = Math.random().toString(36).slice(2) + Date.now().toString(36)
 
+    // Calcular preço promocional
+    const precoVendaNum = precoVenda ? Number(precoVenda) : null
+    const descontoNum   = descontoPct ? Number(descontoPct) : null
+    const precoPromo    = emPromo && precoVendaNum && descontoNum
+      ? precoVendaNum * (1 - descontoNum / 100)
+      : null
+
     await prisma.$executeRaw`
       INSERT INTO "PrecVariacao" (
         "id","produtoId","tipo","isKit","canal","subOpcao","qtdKit",
@@ -33,9 +40,9 @@ export async function POST(req: NextRequest) {
         ${canal || 'shopee'}, ${subOpcao || 'classico'}, ${Number(qtdKit||1)},
         ${Number(custoMaterial||0)}, ${Number(custoMaoObra||0)},
         ${Number(custoEmbalagem||0)}, ${Number(custoArte||0)}, ${custoTotal},
-        ${Number(impostos||0)}, ${precoVenda ? Number(precoVenda) : null},
-        ${emPromo ? true : false}, ${descontoPct ? Number(descontoPct) : null},
-        null, null
+        ${Number(impostos||0)}, ${precoVendaNum},
+        ${emPromo ? true : false}, ${descontoNum},
+        ${precoPromo}, null
       )
     `
 

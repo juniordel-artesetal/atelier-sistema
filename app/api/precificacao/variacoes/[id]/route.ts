@@ -16,7 +16,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       custoMaterial, custoMaoObra, custoEmbalagem, custoArte,
       impostos, precoVenda, emPromo, descontoPct, materiais
     } = body
-    const custoTotal = Number(custoMaterial||0) + Number(custoMaoObra||0) + Number(custoEmbalagem||0) + Number(custoArte||0)
+
+    const custoTotal    = Number(custoMaterial||0) + Number(custoMaoObra||0) + Number(custoEmbalagem||0) + Number(custoArte||0)
+    const precoVendaNum = precoVenda ? Number(precoVenda) : null
+    const descontoNum   = descontoPct ? Number(descontoPct) : null
+
+    // Calcular preço promocional
+    const precoPromo = emPromo && precoVendaNum && descontoNum
+      ? precoVendaNum * (1 - descontoNum / 100)
+      : null
+
+    // Buscar estado anterior ANTES de atualizar (para histórico)
+    const [anterior] = await prisma.$queryRaw`
+      SELECT "precoVenda","emPromo","descontoPct","precoPromocional",
+             "custoTotal"::float,"impostos"::float,"canal","subOpcao","qtdKit"
+      FROM "PrecVariacao" WHERE id=${id}
+    ` as any[]
 
     await prisma.$executeRaw`
       UPDATE "PrecVariacao" SET
@@ -26,11 +41,38 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         "custoMaterial"=${Number(custoMaterial||0)}, "custoMaoObra"=${Number(custoMaoObra||0)},
         "custoEmbalagem"=${Number(custoEmbalagem||0)}, "custoArte"=${Number(custoArte||0)},
         "custoTotal"=${custoTotal}, "impostos"=${Number(impostos||0)},
-        "precoVenda"=${precoVenda ? Number(precoVenda) : null},
+        "precoVenda"=${precoVendaNum},
         "emPromo"=${emPromo ? true : false},
-        "descontoPct"=${descontoPct ? Number(descontoPct) : null}
+        "descontoPct"=${descontoNum},
+        "precoPromocional"=${precoPromo}
       WHERE "id"=${id}
     `
+
+    // ── Gravar histórico de alterações
+    try {
+      const campos: Record<string, [any, any]> = {
+        'Preço de Venda':   [anterior?.precoVenda,        precoVendaNum],
+        'Em Promoção':      [anterior?.emPromo,           emPromo ? true : false],
+        'Desconto %':       [anterior?.descontoPct,       descontoNum],
+        'Preço Promocional':[anterior?.precoPromocional,  precoPromo],
+        'Custo Total':      [anterior?.custoTotal,        custoTotal],
+        'Impostos':         [anterior?.impostos,          Number(impostos||0)],
+        'Canal':            [anterior?.canal,             canal||'shopee'],
+        'Qtd Kit':          [anterior?.qtdKit,            Number(qtdKit||1)],
+      }
+
+      for (const [campo, [antes, depois]] of Object.entries(campos)) {
+        const antesStr  = antes  != null ? String(antes)  : null
+        const depoisStr = depois != null ? String(depois) : null
+        if (antesStr !== depoisStr) {
+          const hid = Math.random().toString(36).slice(2) + Date.now().toString(36)
+          await prisma.$executeRaw`
+            INSERT INTO "PrecVariacaoHistorico" ("id","variacaoId","campo","valorAntes","valorDepois","usuarioNome","createdAt")
+            VALUES (${hid}, ${id}, ${campo}, ${antesStr}, ${depoisStr}, ${'Admin'}, NOW())
+          `
+        }
+      }
+    } catch (_) {}
 
     await prisma.$executeRaw`DELETE FROM "PrecMaterialItem" WHERE "variacaoId"=${id}`
     if (Array.isArray(materiais)) {
