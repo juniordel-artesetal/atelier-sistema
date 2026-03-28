@@ -8,7 +8,7 @@ import {
   Home, LayoutDashboard, Package, Palette, Archive, Printer,
   Factory, Scissors, CheckSquare, Send, Users, UserCheck,
   Paintbrush, BarChart2, LogOut, Menu, X, ShoppingBag, ClipboardList,
-  Settings, Calculator, Box, DollarSign,
+  Settings, Box, DollarSign,
   TrendingUp, Wallet, Target, Tag, Brain,
 } from 'lucide-react'
 
@@ -36,11 +36,11 @@ const setores = [
 // ── Precificação ──────────────────────────────────────────────────────────────
 const precLinks = [
   { href: '/precificacao/materiais',      label: 'Materiais',        icon: Box        },
+  { href: '/precificacao/embalagens',     label: 'Embalagens',       icon: Package    },
   { href: '/precificacao/produtos',       label: 'Produtos',         icon: Package    },
   { href: '/precificacao/combos',         label: 'Combos',           icon: ShoppingBag },
   { href: '/precificacao/skus',           label: 'Lista de SKUs',    icon: BarChart2  },
   { href: '/precificacao/canais',         label: 'Canais de Venda',  icon: DollarSign },
-  { href: '/precificacao/calcular',       label: 'Calculadora',      icon: Calculator },
   { href: '/precificacao/config-tributos',label: 'Tributação',       icon: Settings   },
   { href: '/precificacao/oraculo',        label: 'Oráculo Contábil', icon: BarChart2  },
 ]
