@@ -91,6 +91,18 @@ export default function ProdutosPage() {
   const [novoMatForm, setNovoMatForm]   = useState({ nome: '', unidade: 'unidade', precoPacote: '', qtdPacote: '', fornecedor: '' })
   const [savingNovoMat, setSavingNovo]  = useState(false)
   const [aliqPadrao, setAliqPadrao]     = useState<number | null>(null)
+  const [confirmDelId, setConfirmDelId]   = useState<string | null>(null)
+  const [copiandoId, setCopiandoId]       = useState<string | null>(null)
+  const [showMassa, setShowMassa]         = useState(false)
+  const [massaTexto, setMassaTexto]       = useState('')
+  const [massaCategoria, setMassaCategoria] = useState('')
+  const [salvandoMassa, setSalvandoMassa] = useState(false)
+  const [massaResult, setMassaResult]     = useState<{ criados: number; erros: string[] } | null>(null)
+  const [copiandoConfId, setCopiandoConfId] = useState<string | null>(null)
+  const [showMassaConf, setShowMassaConf] = useState<string | null>(null) // produtoId
+  const [massaConfCanais, setMassaConfCanais] = useState<string[]>([])
+  const [salvandoMassaConf, setSalvandoMassaConf] = useState(false)
+  const [massaConfBase, setMassaConfBase] = useState<Config | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -152,8 +164,40 @@ export default function ProdutosPage() {
     finally { setSavingProd(false) }
   }
   async function deleteProd(id: string) {
-    if (!confirm('Excluir este produto?')) return
-    await fetch(`/api/precificacao/produtos/${id}`, { method: 'DELETE' }); load()
+    await fetch(`/api/precificacao/produtos/${id}`, { method: 'DELETE' })
+    setConfirmDelId(null)
+    load()
+  }
+
+  async function copiarProd(id: string) {
+    setCopiandoId(id)
+    try {
+      const res = await fetch(`/api/precificacao/produtos/${id}/copiar`, { method: 'POST' })
+      if (!res.ok) throw new Error((await res.json()).error)
+      load()
+    } catch (e: any) { alert(e.message) }
+    finally { setCopiandoId(null) }
+  }
+
+  async function salvarMassa() {
+    const linhas = massaTexto.split('\n').map((l: string) => l.trim()).filter(Boolean)
+    if (!linhas.length) return alert('Digite ao menos um produto')
+    setSalvandoMassa(true)
+    try {
+      const produtos = linhas.map(nome => ({ nome, categoria: massaCategoria.trim() || undefined }))
+      const res = await fetch('/api/precificacao/produtos/massa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ produtos }),
+      })
+      const data = await res.json()
+      setMassaResult({
+        criados: data.total,
+        erros: (data.erros || []).map((e: any) => e.nome),
+      })
+      load()
+    } catch (e: any) { alert(e.message) }
+    finally { setSalvandoMassa(false) }
   }
 
   // ── Handlers material ─────────────────────────────────────────────────────
@@ -224,6 +268,96 @@ export default function ProdutosPage() {
     if (!confirm('Excluir esta configuração?')) return
     await fetch(`/api/precificacao/variacoes/${id}`, { method: 'DELETE' }); load()
   }
+  async function copiarConf(c: Config, produtoId: string) {
+    setCopiandoConfId(c.id)
+    try {
+      const payload = {
+        produtoId,
+        tipo: c.isKit ? 'KIT' : 'UNITARIO',
+        isKit: c.isKit,
+        qtdKit: c.qtdKit,
+        canal: c.canal,
+        subOpcao: c.subOpcao,
+        custoMaterial: Number(c.custoTotal) - Number(c.custoMaoObra || 0) - Number(c.custoEmbalagem || 0) - Number(c.custoArte || 0),
+        custoMaoObra: Number(c.custoMaoObra || 0),
+        custoEmbalagem: Number(c.custoEmbalagem || 0),
+        custoArte: Number(c.custoArte || 0),
+        impostos: Number(c.impostos || 0),
+        precoVenda: c.precoVenda ? Number(c.precoVenda) : null,
+        emPromo: false,
+        descontoPct: null,
+        materiais: c.materiais.map(m => ({ ...m })),
+        kitItens: [],
+      }
+      const res = await fetch('/api/precificacao/variacoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      load()
+    } catch (e: any) { alert(e.message) }
+    finally { setCopiandoConfId(null) }
+  }
+
+  async function salvarMassaConf(produtoId: string) {
+    if (!massaConfBase || massaConfCanais.length === 0) return alert('Selecione ao menos um canal')
+    setSalvandoMassaConf(true)
+    try {
+      const canaisComSub: { canal: string; subOpcao: string }[] = massaConfCanais.map(k => {
+        const [canal, subOpcao] = k.split('|')
+        return { canal, subOpcao: subOpcao || 'classico' }
+      })
+      let criados = 0
+      for (const { canal, subOpcao } of canaisComSub) {
+        const payload = {
+          produtoId,
+          tipo: massaConfBase.isKit ? 'KIT' : 'UNITARIO',
+          isKit: massaConfBase.isKit,
+          qtdKit: massaConfBase.qtdKit,
+          canal,
+          subOpcao,
+          custoMaterial: Number(massaConfBase.custoTotal) - Number(massaConfBase.custoMaoObra || 0) - Number(massaConfBase.custoEmbalagem || 0) - Number(massaConfBase.custoArte || 0),
+          custoMaoObra: Number(massaConfBase.custoMaoObra || 0),
+          custoEmbalagem: Number(massaConfBase.custoEmbalagem || 0),
+          custoArte: Number(massaConfBase.custoArte || 0),
+          impostos: Number(massaConfBase.impostos || 0),
+          precoVenda: massaConfBase.precoVenda ? Number(massaConfBase.precoVenda) : null,
+          emPromo: false,
+          descontoPct: null,
+          materiais: massaConfBase.materiais.map(m => ({ ...m })),
+          kitItens: [],
+        }
+        const res = await fetch('/api/precificacao/variacoes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (res.ok) criados++
+      }
+      alert(`${criados} configuração(ões) criada(s) com sucesso!`)
+      setShowMassaConf(null)
+      setMassaConfCanais([])
+      setMassaConfBase(null)
+      load()
+    } catch (e: any) { alert(e.message) }
+    finally { setSalvandoMassaConf(false) }
+  }
+
+  function openMassaConf(produtoId: string) {
+    const prod = produtos.find(p => p.id === produtoId)
+    const baseConf = prod?.configs?.[0] || null
+    setMassaConfBase(baseConf)
+    setMassaConfCanais([])
+    setShowMassaConf(produtoId)
+  }
+
+  function toggleCanal(key: string) {
+    setMassaConfCanais(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    )
+  }
+
   function openEditConf(c: Config, produtoId: string) {
     setConf({
       isKit: c.isKit || false,
@@ -257,10 +391,16 @@ export default function ProdutosPage() {
           <h1 className="text-2xl font-bold text-gray-800">Produtos</h1>
           <p className="text-gray-500 text-sm mt-1">Cadastro de produtos com precificação integrada</p>
         </div>
-        <button onClick={() => { setProdForm({ nome: '', sku: '', categoria: '' }); setEditProdId(null); setShowProd(true) }}
-          className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
-          + Novo Produto
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => { setShowMassa(true); setMassaTexto(''); setMassaCategoria(''); setMassaResult(null) }}
+            className="border border-purple-300 text-purple-600 hover:bg-purple-50 text-sm font-semibold px-4 py-2 rounded-lg">
+            📋 Cadastro em Massa
+          </button>
+          <button onClick={() => { setProdForm({ nome: '', sku: '', categoria: '' }); setEditProdId(null); setShowProd(true) }}
+            className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+            + Novo Produto
+          </button>
+        </div>
       </div>
 
       <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar produto..."
@@ -748,6 +888,60 @@ export default function ProdutosPage() {
         </div>
       )}
 
+      {/* ── Modal Cadastro em Massa ── */}
+      {showMassa && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4">
+            <h2 className="text-lg font-bold text-gray-800 mb-1">Cadastro em Massa</h2>
+            <p className="text-sm text-gray-500 mb-4">Digite um produto por linha. Máximo 100 por vez.</p>
+            {massaResult ? (
+              <div className="space-y-3">
+                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                  <p className="text-green-700 font-semibold">✅ {massaResult.criados} produto(s) criado(s) com sucesso!</p>
+                </div>
+                {massaResult.erros.length > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                    <p className="text-red-600 font-semibold mb-1">❌ Erros ({massaResult.erros.length}):</p>
+                    {massaResult.erros.map(e => <p key={e} className="text-xs text-red-500">{e}</p>)}
+                  </div>
+                )}
+                <button onClick={() => setShowMassa(false)}
+                  className="w-full bg-purple-600 text-white font-semibold py-2 rounded-lg hover:bg-purple-700">
+                  Fechar
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Categoria (opcional — aplicada a todos)</label>
+                  <input value={massaCategoria} onChange={e => setMassaCategoria(e.target.value)}
+                    placeholder="Ex: Laços, Cofrinhos..." className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Produtos (um por linha) *</label>
+                  <textarea value={massaTexto} onChange={e => setMassaTexto(e.target.value)}
+                    rows={8} placeholder="Cofrinho Personalizado Simples&#10;Cofrinho Personalizado Luxo&#10;Laço de Cetim Grande" 
+                    className={inputClass + ' resize-none font-mono text-xs'} />
+                  <p className="text-xs text-gray-400 mt-1">
+                    {massaTexto.split('\n').filter((l: string) => l.trim()).length} produto(s) detectado(s)
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={salvarMassa} disabled={salvandoMassa || !massaTexto.trim()}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg disabled:opacity-50">
+                    {salvandoMassa ? 'Criando...' : 'Criar Produtos'}
+                  </button>
+                  <button onClick={() => setShowMassa(false)}
+                    className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg hover:bg-gray-50">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Lista de produtos ── */}
       {loading ? (
         <div className="bg-white rounded-xl border p-12 text-center text-gray-400">Carregando...</div>
@@ -772,11 +966,26 @@ export default function ProdutosPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <button onClick={e => { e.stopPropagation(); setProdForm({ nome: prod.nome, sku: prod.sku || '', categoria: prod.categoria || '' }); setEditProdId(prod.id); setShowProd(true) }}
                     className="text-xs text-blue-500 hover:underline px-2">Editar</button>
-                  <button onClick={e => { e.stopPropagation(); deleteProd(prod.id) }}
-                    className="text-xs text-red-500 hover:underline px-2">Excluir</button>
+                  <button onClick={e => { e.stopPropagation(); copiarProd(prod.id) }}
+                    disabled={copiandoId === prod.id}
+                    className="text-xs text-purple-500 hover:underline px-2 disabled:opacity-50">
+                    {copiandoId === prod.id ? '...' : '📋 Copiar'}
+                  </button>
+                  {confirmDelId === prod.id ? (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      <span className="text-xs text-red-600 font-medium">Confirmar?</span>
+                      <button onClick={e => { e.stopPropagation(); deleteProd(prod.id) }}
+                        className="text-xs bg-red-500 text-white px-2 py-0.5 rounded hover:bg-red-600">Sim</button>
+                      <button onClick={e => { e.stopPropagation(); setConfirmDelId(null) }}
+                        className="text-xs border border-gray-300 text-gray-500 px-2 py-0.5 rounded hover:bg-gray-50">Não</button>
+                    </div>
+                  ) : (
+                    <button onClick={e => { e.stopPropagation(); setConfirmDelId(prod.id) }}
+                      className="text-xs text-red-500 hover:underline px-2">Excluir</button>
+                  )}
                   <button onClick={e => { e.stopPropagation(); setConf({ ...EMPTY }); setEditConfId(null); setShowConf(prod.id) }}
                     className="text-xs bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700">
                     + Configuração
@@ -830,6 +1039,10 @@ export default function ProdutosPage() {
                               <td className="px-4 py-2.5 text-center">
                                 <div className="flex gap-2 justify-center">
                                   <button onClick={() => openEditConf(c, prod.id)} className="text-xs text-blue-500 hover:underline">Editar</button>
+                                  <button onClick={() => copiarConf(c, prod.id)} disabled={copiandoConfId === c.id}
+                                    className="text-xs text-purple-500 hover:underline disabled:opacity-50">
+                                    {copiandoConfId === c.id ? '...' : '📋 Copiar'}
+                                  </button>
                                   <button onClick={() => deleteConf(c.id)} className="text-xs text-red-500 hover:underline">Excluir</button>
                                 </div>
                               </td>
@@ -845,6 +1058,88 @@ export default function ProdutosPage() {
           ))}
         </div>
       )}
+      {/* ── Modal Configurações em Massa ── */}
+      {showMassaConf && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-gray-800 mb-1">Configurações em Massa</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Cria configurações para múltiplos canais usando os custos da primeira configuração existente como base.
+            </p>
+            {massaConfBase ? (
+              <div className="mb-4 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 text-xs text-purple-700">
+                <p className="font-semibold">Base: {massaConfBase.isKit ? `Kit ${massaConfBase.qtdKit}un` : 'Unitário'}</p>
+                <p>Custo total: {fmtR(Number(massaConfBase.custoTotal))} · Impostos: {massaConfBase.impostos}%</p>
+              </div>
+            ) : (
+              <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-700">
+                ⚠️ Nenhuma configuração base encontrada. Crie uma configuração primeiro.
+              </div>
+            )}
+            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Selecione os canais</p>
+            <div className="grid grid-cols-1 gap-1 mb-4">
+                  <label key="shopee|classico" className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+                    <input type="checkbox" checked={massaConfCanais.includes('shopee|classico')} onChange={() => toggleCanal('shopee|classico')}
+                      className="accent-purple-600" />
+                    <span className="text-sm text-gray-700">🛒 Shopee (até R$79,99 · 20%+R$4)</span>
+                  </label>
+                  <label key="ml|classico" className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+                    <input type="checkbox" checked={massaConfCanais.includes('ml|classico')} onChange={() => toggleCanal('ml|classico')}
+                      className="accent-purple-600" />
+                    <span className="text-sm text-gray-700">🟡 ML Clássico (12%)</span>
+                  </label>
+                  <label key="ml|premium" className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+                    <input type="checkbox" checked={massaConfCanais.includes('ml|premium')} onChange={() => toggleCanal('ml|premium')}
+                      className="accent-purple-600" />
+                    <span className="text-sm text-gray-700">🟡 ML Premium (16%)</span>
+                  </label>
+                  <label key="amazon|classico" className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+                    <input type="checkbox" checked={massaConfCanais.includes('amazon|classico')} onChange={() => toggleCanal('amazon|classico')}
+                      className="accent-purple-600" />
+                    <span className="text-sm text-gray-700">📦 Amazon (12%+R$2)</span>
+                  </label>
+                  <label key="tiktok|classico" className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+                    <input type="checkbox" checked={massaConfCanais.includes('tiktok|classico')} onChange={() => toggleCanal('tiktok|classico')}
+                      className="accent-purple-600" />
+                    <span className="text-sm text-gray-700">🎵 TikTok Shop (6%+R$2)</span>
+                  </label>
+                  <label key="elo7|padrao" className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+                    <input type="checkbox" checked={massaConfCanais.includes('elo7|padrao')} onChange={() => toggleCanal('elo7|padrao')}
+                      className="accent-purple-600" />
+                    <span className="text-sm text-gray-700">🎨 Elo7 Padrão (18%+R$3,99)</span>
+                  </label>
+                  <label key="elo7|maxima" className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+                    <input type="checkbox" checked={massaConfCanais.includes('elo7|maxima')} onChange={() => toggleCanal('elo7|maxima')}
+                      className="accent-purple-600" />
+                    <span className="text-sm text-gray-700">🎨 Elo7 Máxima (20%+R$3,99)</span>
+                  </label>
+                  <label key="magalu|classico" className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+                    <input type="checkbox" checked={massaConfCanais.includes('magalu|classico')} onChange={() => toggleCanal('magalu|classico')}
+                      className="accent-purple-600" />
+                    <span className="text-sm text-gray-700">🛍️ Magalu (10%)</span>
+                  </label>
+                  <label key="direta|classico" className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-gray-100">
+                    <input type="checkbox" checked={massaConfCanais.includes('direta|classico')} onChange={() => toggleCanal('direta|classico')}
+                      className="accent-purple-600" />
+                    <span className="text-sm text-gray-700">🏠 Venda Direta (3%)</span>
+                  </label>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">{massaConfCanais.length} canal(is) selecionado(s)</p>
+            <div className="flex gap-3">
+              <button onClick={() => salvarMassaConf(showMassaConf!)}
+                disabled={salvandoMassaConf || !massaConfBase || massaConfCanais.length === 0}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg disabled:opacity-50">
+                {salvandoMassaConf ? 'Criando...' : `Criar ${massaConfCanais.length} Configuração(ões)`}
+              </button>
+              <button onClick={() => { setShowMassaConf(null); setMassaConfCanais([]) }}
+                className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg hover:bg-gray-50">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
