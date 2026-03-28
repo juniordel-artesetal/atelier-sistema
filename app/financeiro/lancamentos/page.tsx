@@ -23,10 +23,12 @@ interface Lancamento {
   data: string; dataRealizada?: string
   status: string; canal?: string; referencia?: string; observacoes?: string
   categoriaId?: string; categoriaNome?: string; categoriaCor?: string; categoriaIcone?: string
+  recorrenciaId?: string; recorrencia?: string; parcela?: number; totalParcelas?: number
 }
 interface Categoria { id: string; nome: string; tipo: string; cor: string; icone: string }
 
 const EMPTY: Partial<Lancamento> = { tipo: 'RECEITA', status: 'PENDENTE' }
+type RecorrenciaTipo = '' | 'MENSAL' | 'PARCELAS'
 
 export default function LancamentosPage() {
   const hoje = new Date()
@@ -43,6 +45,11 @@ export default function LancamentosPage() {
   const [form, setForm]       = useState<Partial<Lancamento>>(EMPTY)
   const [saving, setSaving]   = useState(false)
   const [delId, setDelId]     = useState<string | null>(null)
+  const [recorrencia, setRecorrencia]     = useState<RecorrenciaTipo>('')
+  const [totalParcelas, setTotalParcelas] = useState('6')
+  const [modalConfirm, setModalConfirm]   = useState<{
+    tipo: 'editar' | 'deletar'; id: string; temRecorrencia: boolean
+  } | null>(null)
 
   const fetchRows = useCallback(async () => {
     setLoading(true)
@@ -71,23 +78,38 @@ export default function LancamentosPage() {
   }
   const closeModal = () => { setModal(false); setEditRow(null) }
 
-  const handleSave = async () => {
+  const handleSave = async (alterarFuturos = false) => {
     if (!form.descricao || !form.valor || !form.data)
       return alert('Preencha: descrição, valor e data.')
+    if (editRow?.recorrenciaId && !alterarFuturos && !modalConfirm) {
+      setModalConfirm({ tipo: 'editar', id: editRow.id, temRecorrencia: true })
+      return
+    }
     setSaving(true)
     try {
       const url    = editRow ? `/api/financeiro/lancamentos/${editRow.id}` : '/api/financeiro/lancamentos'
       const method = editRow ? 'PUT' : 'POST'
-      await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+      const body   = editRow
+        ? { ...form, alterarFuturos }
+        : { ...form, recorrencia: recorrencia || null, totalParcelas: recorrencia === 'PARCELAS' ? Number(totalParcelas) : null }
+      await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      setModalConfirm(null)
       closeModal(); fetchRows()
     } finally { setSaving(false) }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Confirmar exclusão?')) return
+  const handleDelete = async (id: string, deletarFuturos = false) => {
     setDelId(id)
-    await fetch(`/api/financeiro/lancamentos/${id}`, { method: 'DELETE' })
-    setDelId(null); fetchRows()
+    await fetch(`/api/financeiro/lancamentos/${id}?deletarFuturos=${deletarFuturos}`, { method: 'DELETE' })
+    setDelId(null); setModalConfirm(null); fetchRows()
+  }
+
+  const confirmarDelete = (row: Lancamento) => {
+    if (row.recorrenciaId) {
+      setModalConfirm({ tipo: 'deletar', id: row.id, temRecorrencia: true })
+    } else {
+      handleDelete(row.id)
+    }
   }
 
   const marcarPago = async (row: Lancamento) => {
@@ -201,6 +223,14 @@ export default function LancamentosPage() {
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-800">{row.descricao}</p>
                     {row.referencia && <p className="text-xs text-gray-400">{row.referencia}</p>}
+                    {row.recorrencia === 'MENSAL' && (
+                      <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">🔄 Mensal</span>
+                    )}
+                    {row.recorrencia === 'PARCELAS' && (
+                      <span className="text-xs bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full">
+                        📆 {row.parcela}/{row.totalParcelas}x
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-500 capitalize text-xs">{row.canal?.replace('_', ' ') || '—'}</td>
                   <td className={`px-4 py-3 text-right font-semibold ${row.tipo === 'RECEITA' ? 'text-green-600' : 'text-red-600'}`}>{fmtR(row.valor)}</td>
@@ -217,7 +247,7 @@ export default function LancamentosPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
                       <button onClick={() => openModal(row)} className="p-1.5 rounded-lg hover:bg-purple-50 text-gray-400 hover:text-purple-600"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => handleDelete(row.id)} disabled={delId === row.id} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => confirmarDelete(row)} disabled={delId === row.id} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -299,6 +329,41 @@ export default function LancamentosPage() {
                 ))}
               </div>
 
+              {/* Recorrência — só para novos lançamentos */}
+              {!editRow && (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-2">Recorrência</label>
+                  <div className="flex gap-2">
+                    {([['', 'Sem recorrência'], ['MENSAL', '🔄 Mensal'], ['PARCELAS', '📆 Parcelado']] as const).map(([val, label]) => (
+                      <button key={val} type="button" onClick={() => setRecorrencia(val as RecorrenciaTipo)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-semibold border-2 transition-colors ${
+                          recorrencia === val
+                            ? 'bg-blue-50 border-blue-400 text-blue-700'
+                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        }`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {recorrencia === 'MENSAL' && (
+                    <p className="text-xs text-blue-600 mt-1.5">
+                      🔄 Serão criados 24 lançamentos mensais a partir da data informada
+                    </p>
+                  )}
+                  {recorrencia === 'PARCELAS' && (
+                    <div className="mt-2">
+                      <label className="text-xs font-medium text-gray-500 block mb-1">Número de parcelas</label>
+                      <input type="number" min="2" max="60" value={totalParcelas}
+                        onChange={e => setTotalParcelas(e.target.value)}
+                        className={inputClass} placeholder="Ex: 6" />
+                      <p className="text-xs text-orange-600 mt-1">
+                        📆 Serão criados {totalParcelas} lançamentos mensais com indicador (1/{totalParcelas}), (2/{totalParcelas})...
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {form.status === 'PAGO' && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -333,6 +398,52 @@ export default function LancamentosPage() {
                 {saving ? 'Salvando...' : editRow ? 'Salvar Alterações' : 'Lançar'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ── Modal confirmação recorrência ── */}
+      {modalConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-2xl w-full max-w-sm mx-4 shadow-2xl p-6">
+            {modalConfirm.tipo === 'deletar' ? (
+              <>
+                <h3 className="font-bold text-gray-800 mb-2">Excluir lançamento recorrente</h3>
+                <p className="text-sm text-gray-500 mb-5">Este lançamento faz parte de uma série. O que deseja fazer?</p>
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => handleDelete(modalConfirm.id, false)}
+                    className="w-full py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+                    Excluir somente este
+                  </button>
+                  <button onClick={() => handleDelete(modalConfirm.id, true)}
+                    className="w-full py-2.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600">
+                    Excluir este e os próximos pendentes
+                  </button>
+                  <button onClick={() => setModalConfirm(null)}
+                    className="w-full py-2 text-sm text-gray-400 hover:text-gray-600">
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-bold text-gray-800 mb-2">Editar lançamento recorrente</h3>
+                <p className="text-sm text-gray-500 mb-5">Este lançamento faz parte de uma série. O que deseja alterar?</p>
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => handleSave(false)} disabled={saving}
+                    className="w-full py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                    Somente este lançamento
+                  </button>
+                  <button onClick={() => handleSave(true)} disabled={saving}
+                    className="w-full py-2.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">
+                    {saving ? 'Salvando...' : 'Este e os próximos pendentes'}
+                  </button>
+                  <button onClick={() => setModalConfirm(null)}
+                    className="w-full py-2 text-sm text-gray-400 hover:text-gray-600">
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

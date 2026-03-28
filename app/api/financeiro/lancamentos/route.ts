@@ -31,8 +31,13 @@ export async function GET(req: Request) {
   if (catId)   { params.push(catId);   conditions.push(`l."categoriaId" = $${params.length}`) }
 
   const rows = await prisma.$queryRawUnsafe(
-    `SELECT l.*, l.valor::float, l."valorRealizado"::float,
-            c.nome AS "categoriaNome", c.cor AS "categoriaCor", c.icone AS "categoriaIcone"
+    `SELECT
+       l.*,
+       l.valor::float           AS valor,
+       l."valorRealizado"::float AS "valorRealizado",
+       c.nome  AS "categoriaNome",
+       c.cor   AS "categoriaCor",
+       c.icone AS "categoriaIcone"
      FROM "FinLancamento" l
      LEFT JOIN "FinCategoria" c ON c.id = l."categoriaId"
      WHERE ${conditions.join(' AND ')}
@@ -43,40 +48,101 @@ export async function GET(req: Request) {
   return NextResponse.json(rows)
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function addMonths(dateStr: string, months: number): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  d.setMonth(d.getMonth() + months)
+  return d.toISOString().split('T')[0]
+}
+
+function newId(): string {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36)
+}
+
+async function insertLancamento(p: {
+  id: string; tipo: string; catId: string | null; descricao: string
+  valor: number; data: string; status: string
+  drVal: string | null; vrVal: number | null
+  canalVal: string | null; refVal: string | null; obsVal: string | null
+  recorrenciaId: string | null; recorrencia: string | null
+  parcela: number | null; totalParcelas: number | null
+}) {
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO "FinLancamento"
+      ("id","workspaceId","tipo","categoriaId","descricao","valor","data","status",
+       "dataRealizada","valorRealizado","canal","referencia","observacoes",
+       "recorrenciaId","recorrencia","parcela","totalParcelas")
+    VALUES ($1,'ws_atelier',$2,$3,$4,$5,$6::date,$7,$8::date,$9,$10,$11,$12,$13,$14,$15,$16)`,
+    p.id, p.tipo, p.catId, p.descricao,
+    p.valor, p.data, p.status,
+    p.drVal, p.vrVal, p.canalVal, p.refVal, p.obsVal,
+    p.recorrenciaId, p.recorrencia, p.parcela, p.totalParcelas
+  )
+}
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session || session.user.role !== 'ADMIN')
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
 
-  const { tipo, categoriaId, descricao, valor, data, status = 'PENDENTE', dataRealizada, valorRealizado, canal, referencia, observacoes } = await req.json()
+  const {
+    tipo, categoriaId, descricao, valor, data,
+    status = 'PENDENTE', dataRealizada, valorRealizado,
+    canal, referencia, observacoes,
+    recorrencia,   // 'MENSAL' | 'PARCELAS' | null
+    totalParcelas, // número de parcelas (só para PARCELAS)
+  } = await req.json()
 
   if (!tipo || !descricao || !valor || !data)
     return NextResponse.json({ error: 'Campos obrigatórios: tipo, descricao, valor, data' }, { status: 400 })
 
-  const id      = Math.random().toString(36).slice(2) + Date.now().toString(36)
-  const catId   = categoriaId   || null
+  const catId    = categoriaId  || null
   const canalVal = canal        || null
   const refVal   = referencia   || null
   const obsVal   = observacoes  || null
   const drVal    = dataRealizada || null
   const vrVal    = valorRealizado ? Number(valorRealizado) : null
+  const valorNum = Number(valor)
 
-  // $executeRawUnsafe com cast explícito ::date para campos de data anuláveis
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO "FinLancamento"
-      ("id","workspaceId","tipo","categoriaId","descricao","valor","data","status","dataRealizada","valorRealizado","canal","referencia","observacoes")
-    VALUES ($1,'ws_atelier',$2,$3,$4,$5,$6::date,$7,$8::date,$9,$10,$11,$12)`,
-    id, tipo, catId, descricao,
-    Number(valor), data, status,
-    drVal, vrVal, canalVal, refVal, obsVal
-  )
+  // ── Sem recorrência — lançamento simples ──────────────────────────────────
+  if (!recorrencia) {
+    const id = newId()
+    await insertLancamento({
+      id, tipo, catId, descricao, valor: valorNum, data, status,
+      drVal, vrVal, canalVal, refVal, obsVal,
+      recorrenciaId: null, recorrencia: null, parcela: null, totalParcelas: null,
+    })
+    const [row] = await prisma.$queryRaw`
+      SELECT l.*, l.valor::float, l."valorRealizado"::float,
+             c.nome AS "categoriaNome", c.cor AS "categoriaCor", c.icone AS "categoriaIcone"
+      FROM "FinLancamento" l LEFT JOIN "FinCategoria" c ON c.id=l."categoriaId"
+      WHERE l.id=${id}
+    ` as any[]
+    return NextResponse.json(row, { status: 201 })
+  }
 
-  const [row] = await prisma.$queryRaw`
-    SELECT l.*, l.valor::float, l."valorRealizado"::float,
-           c.nome AS "categoriaNome", c.cor AS "categoriaCor", c.icone AS "categoriaIcone"
-    FROM "FinLancamento" l LEFT JOIN "FinCategoria" c ON c.id=l."categoriaId"
-    WHERE l.id=${id}
-  ` as any[]
+  // ── Com recorrência — cria múltiplos lançamentos ──────────────────────────
+  const recId = newId()
+  const meses = recorrencia === 'PARCELAS' ? Number(totalParcelas || 1) : 24
 
-  return NextResponse.json(row, { status: 201 })
+  for (let i = 0; i < meses; i++) {
+    await insertLancamento({
+      id: newId(),
+      tipo, catId,
+      descricao: recorrencia === 'PARCELAS'
+        ? `${descricao} (${i + 1}/${meses})`
+        : descricao,
+      valor: valorNum,
+      data: addMonths(data, i),
+      status: 'PENDENTE',
+      drVal: null, vrVal: null,
+      canalVal, refVal, obsVal,
+      recorrenciaId: recId,
+      recorrencia,
+      parcela: i + 1,
+      totalParcelas: recorrencia === 'PARCELAS' ? meses : null,
+    })
+  }
+
+  return NextResponse.json({ recorrenciaId: recId, total: meses, tipo: recorrencia }, { status: 201 })
 }
