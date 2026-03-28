@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 // ── Interfaces ────────────────────────────────────────────────────────────────
 interface Material { id: string; nome: string; precoUnidade: number; unidade: string }
 interface MatLinha { materialId: string | null; nomeMaterial: string; qtdUsada: number; custoUnit: number; rendimento: number }
+interface Embalagem { id: string; nome: string; custoTotal: number }
 interface Config {
   id: string; isKit: boolean; qtdKit: number
   custoMaoObra: number; custoEmbalagem: number; custoArte: number
@@ -62,6 +63,7 @@ const EMPTY: {
   impostos: string; precoVenda: string
   emPromo: boolean; descontoPct: string
   materiais: MatLinha[]
+  embalagemId: string
 } = {
   isKit: false, qtdKit: '1', canal: 'shopee', subOpcao: 'classico',
   tipoMaoObra: 'local', custoMaoObra: '',
@@ -71,6 +73,7 @@ const EMPTY: {
   impostos: '', precoVenda: '',
   emPromo: false, descontoPct: '',
   materiais: [],
+  embalagemId: '',
 }
 
 export default function ProdutosPage() {
@@ -91,6 +94,7 @@ export default function ProdutosPage() {
   const [novoMatForm, setNovoMatForm]   = useState({ nome: '', unidade: 'unidade', precoPacote: '', qtdPacote: '', fornecedor: '' })
   const [savingNovoMat, setSavingNovo]  = useState(false)
   const [aliqPadrao, setAliqPadrao]     = useState<number | null>(null)
+  const [embalagens, setEmbalagens]     = useState<Embalagem[]>([])
   const [confirmDelId, setConfirmDelId]   = useState<string | null>(null)
   const [copiandoId, setCopiandoId]       = useState<string | null>(null)
   const [showMassa, setShowMassa]         = useState(false)
@@ -106,12 +110,14 @@ export default function ProdutosPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [p, m, trib] = await Promise.all([
+    const [p, m, trib, emb] = await Promise.all([
       fetch('/api/precificacao/produtos').then(r => r.json()).catch(() => []),
       fetch('/api/precificacao/materiais').then(r => r.json()).catch(() => []),
       fetch('/api/precificacao/config-tributos').then(r => r.json()).catch(() => null),
+      fetch('/api/precificacao/embalagens').then(r => r.json()).catch(() => []),
     ])
     if (trib?.aliquotaPadrao) setAliqPadrao(Number(trib.aliquotaPadrao))
+    setEmbalagens(Array.isArray(emb) ? emb : [])
     const prods = (Array.isArray(p) ? p : []).map((prod: any) => ({
       ...prod,
       configs: (prod.variacoes || []).map((v: any) => ({
@@ -136,9 +142,14 @@ export default function ProdutosPage() {
     return s + (Number(m.qtdUsada) * Number(m.custoUnit)) / rend
   }, 0)
   const custoMatTotal = custoMatUnit * (conf.isKit ? qtdKit : 1)
-  const custoFixo     = Number(conf.custoMaoObra || 0) + Number(conf.custoEmbalagem || 0) + Number(conf.custoArte || 0)
-  const custoAdicional= conf.custosAdicionais.reduce((s, c) => s + Number(c.valor || 0), 0)
-  const custoLote     = custoMatTotal + custoFixo + custoAdicional
+  // Mão de obra e arte: por unidade, multiplicam pelo kit (igual aos materiais)
+  const custoMaoObraUnit  = Number(conf.custoMaoObra || 0)
+  const custoArteUnit     = Number(conf.custoArte || 0)
+  const custoMaoObraTotal = custoMaoObraUnit * (conf.isKit ? qtdKit : 1)
+  const custoArteTotal    = custoArteUnit    * (conf.isKit ? qtdKit : 1)
+  const custoFixo         = custoMaoObraTotal + Number(conf.custoEmbalagem || 0) + custoArteTotal
+  const custoAdicional    = conf.custosAdicionais.reduce((s, c) => s + Number(c.valor || 0), 0)
+  const custoLote         = custoMatTotal + custoFixo + custoAdicional
   const custoUnitVenda= conf.isKit ? custoLote / qtdKit : custoLote  // custo para precificar
 
   const aliqPct  = Number(conf.impostos || 0)
@@ -359,6 +370,7 @@ export default function ProdutosPage() {
   }
 
   function openEditConf(c: Config, produtoId: string) {
+    const embMatch = embalagens.find(em => Math.abs(em.custoTotal - Number(c.custoEmbalagem || 0)) < 0.001)
     setConf({
       isKit: c.isKit || false,
       qtdKit: String(c.qtdKit || 1),
@@ -369,6 +381,7 @@ export default function ProdutosPage() {
       tipoArte: c.custoArte > 0 ? 'freelancer' : 'local',
       custoArte: String(c.custoArte || ''),
       custoEmbalagem: String(c.custoEmbalagem || ''),
+      embalagemId: embMatch?.id || '',
       custosAdicionais: (c as any).custosAdicionais || [],
       impostos: String(c.impostos || ''),
       precoVenda: c.precoVenda ? String(c.precoVenda) : '',
@@ -657,9 +670,16 @@ export default function ProdutosPage() {
                     ))}
                   </div>
                   {conf.tipoMaoObra === 'freelancer' ? (
-                    <input type="number" step="0.01" value={conf.custoMaoObra}
-                      onChange={e => setConf(p => ({ ...p, custoMaoObra: e.target.value }))}
-                      className={inputClass} placeholder="Valor pago (R$)" />
+                    <div>
+                      <input type="number" step="0.01" value={conf.custoMaoObra}
+                        onChange={e => setConf(p => ({ ...p, custoMaoObra: e.target.value }))}
+                        className={inputClass} placeholder="Valor por unidade (R$)" />
+                      {conf.isKit && Number(conf.custoMaoObra) > 0 && (
+                        <p className="text-xs text-purple-600 mt-1">
+                          {fmtR(Number(conf.custoMaoObra))}/un × {qtdKit} = <strong>{fmtR(Number(conf.custoMaoObra) * qtdKit)} no kit</strong>
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <p className="text-xs text-gray-400 italic">Mão de obra própria — R$ 0,00</p>
                   )}
@@ -677,9 +697,16 @@ export default function ProdutosPage() {
                     ))}
                   </div>
                   {conf.tipoArte === 'freelancer' ? (
-                    <input type="number" step="0.01" value={conf.custoArte}
-                      onChange={e => setConf(p => ({ ...p, custoArte: e.target.value }))}
-                      className={inputClass} placeholder="Valor pago (R$)" />
+                    <div>
+                      <input type="number" step="0.01" value={conf.custoArte}
+                        onChange={e => setConf(p => ({ ...p, custoArte: e.target.value }))}
+                        className={inputClass} placeholder="Valor por unidade (R$)" />
+                      {conf.isKit && Number(conf.custoArte) > 0 && (
+                        <p className="text-xs text-purple-600 mt-1">
+                          {fmtR(Number(conf.custoArte))}/un × {qtdKit} = <strong>{fmtR(Number(conf.custoArte) * qtdKit)} no kit</strong>
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <p className="text-xs text-gray-400 italic">Arte própria — R$ 0,00</p>
                   )}
@@ -687,10 +714,29 @@ export default function ProdutosPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Embalagem (R$)</label>
-                    <input type="number" step="0.01" value={conf.custoEmbalagem}
-                      onChange={e => setConf(p => ({ ...p, custoEmbalagem: e.target.value }))}
-                      className={inputClass} placeholder="0,00" />
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Embalagem</label>
+                    <select value={conf.embalagemId || ''}
+                      onChange={e => {
+                        const emb = embalagens.find(em => em.id === e.target.value)
+                        setConf(p => ({
+                          ...p,
+                          embalagemId: e.target.value,
+                          custoEmbalagem: emb ? String(emb.custoTotal) : '0',
+                        }))
+                      }}
+                      className={inputClass + ' bg-white'}>
+                      <option value="">Sem embalagem</option>
+                      {embalagens.map(emb => (
+                        <option key={emb.id} value={emb.id}>
+                          {emb.nome} — {fmtR(emb.custoTotal)}
+                        </option>
+                      ))}
+                    </select>
+                    {conf.embalagemId && (
+                      <p className="text-xs text-purple-600 mt-1">
+                        Custo fixo: <strong>{fmtR(Number(conf.custoEmbalagem))}</strong> por venda
+                      </p>
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -783,7 +829,7 @@ export default function ProdutosPage() {
                         <p className="font-bold text-base mt-1">{val ? fmtR(val) : '—'}</p>
                         <div className="mt-1.5 pt-1.5 border-t border-current border-opacity-20">
                           <p className="text-xs font-bold">{(m * 100).toFixed(0)}% · {val ? fmtR(val * m) : '—'}</p>
-                          <p className="text-xs opacity-60">lucro líquido</p>
+                          <p className="text-xs opacity-60">lucro bruto</p>
                         </div>
                       </button>
                     ))}
