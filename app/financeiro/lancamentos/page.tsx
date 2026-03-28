@@ -393,7 +393,7 @@ export default function LancamentosPage() {
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 sticky bottom-0 bg-white">
               <button onClick={closeModal} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancelar</button>
-              <button onClick={handleSave} disabled={saving}
+              <button onClick={() => handleSave()} disabled={saving}
                 className="px-5 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">
                 {saving ? 'Salvando...' : editRow ? 'Salvar Alterações' : 'Lançar'}
               </button>
